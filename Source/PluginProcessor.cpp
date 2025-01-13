@@ -8,7 +8,8 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-//#include "data.h"
+#include <filesystem>
+#include <memory>
 
 using namespace juce;
 
@@ -23,7 +24,7 @@ PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ) 
 #endif
 
     ,valueTree(*this, nullptr, "Parameters", createParameters())
@@ -129,7 +130,16 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
  //       0
  //   );
  //   dryBuffer.setSize(spec.numChannels, spec.maximumBlockSize);
+	loadMfmParamsFromFolder("W:\\mfm\\MFM_Synthsizer\\data\\violin\\sustain\\table");
+	for (int i = 0; i < mySynth.getNumVoices(); i++)
+	{
+		if (auto synthVoice = dynamic_cast<SynthVoice*>(mySynth.getVoice(i)))
+		{
+            synthVoice->prepareToPlay(mfmParams);
+		}
+	}
 }
+
 
 void PhysicsBasedSynthAudioProcessor::releaseResources()
 {
@@ -222,6 +232,20 @@ void PhysicsBasedSynthAudioProcessor::setStateInformation (const void* data, int
             valueTree.replaceState(juce::ValueTree::fromXml(*xmlState));
 }
 
+void PhysicsBasedSynthAudioProcessor::loadMfmParamsFromFolder(std::string path)
+{
+	mfmParams.clear();
+	for (const auto& entry : std::filesystem::directory_iterator(path))
+	{
+		if (entry.path().extension() == ".npz")
+		{
+			mfmParams[std::stoi(entry.path().stem().string())] = std::make_unique<MFMParam>(entry.path().string());
+		}
+		juce::Logger::writeToLog("Loaded MFM params from " + path);
+	}
+    
+}
+
 //==============================================================================
 // This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
@@ -237,5 +261,6 @@ AudioProcessorValueTreeState::ParameterLayout PhysicsBasedSynthAudioProcessor::c
     // gain
 	params.push_back(std::make_unique<AudioParameterFloat>("gain", "Gain", 0.0f, 5.0f, 1));
 	params.push_back(std::make_unique<AudioParameterFloat>("wet_dry", "Wet Dry", 0.0f, 1.0f, 0.5f));
+	params.push_back(std::make_unique<AudioParameterFloat>("attack", "Attack", 0.0f, 2.0f, 1.0f));
     return { params.begin(), params.end() };
 }

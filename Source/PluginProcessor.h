@@ -11,6 +11,7 @@
 #include <JuceHeader.h>
 #include "SynthVoice.h"
 #include "SynthSound.h"
+#include "MFMParam.h"
  
 //==============================================================================
 /**
@@ -61,11 +62,17 @@ private:
     juce::Synthesiser mySynth;
 
     juce::dsp::Convolution convolution;
-    juce::AudioBuffer<float> dryBuffer;
+    juce::AudioBuffer<float> dryBuffer; 
 
     double lastSampleRate;
 
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
+
+	std::map<int,std::shared_ptr<MFMParam>> mfmParams;
+
+	void loadMfmParamsFromFolder(std::string path);
+
+
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhysicsBasedSynthAudioProcessor)
 };

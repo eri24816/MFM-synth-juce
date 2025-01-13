@@ -5,6 +5,10 @@
               pluginFormats="buildVST3" pluginName="MFMSynth" pluginDesc="MFM Synthesizer">
   <MAINGROUP id="Kz5Htd" name="MFMSynth">
     <GROUP id="{9A49C777-E63D-FDF6-E7BE-B1031F3C0961}" name="Source">
+      <GROUP id="{71B805D9-CB25-5D4A-8836-5CBCA643F001}" name="cnpy">
+        <FILE id="Fl7AA4" name="cnpy.cpp" compile="1" resource="0" file="Source/cnpy/cnpy.cpp"/>
+        <FILE id="GsXfTw" name="cnpy.h" compile="0" resource="0" file="Source/cnpy/cnpy.h"/>
+      </GROUP>
       <GROUP id="{FFBCF1CE-1197-400C-2CC8-D1E60E0A08D1}" name="GUI">
         <FILE id="QAdTed" name="SliderGroup.cpp" compile="1" resource="0" file="Source/GUI/SliderGroup.cpp"/>
         <FILE id="FjiVMv" name="SliderGroup.h" compile="0" resource="0" file="Source/GUI/SliderGroup.h"/>
@@ -16,6 +20,7 @@
             file="Source/PluginProcessor.cpp"/>
       <FILE id="c8c8Kv" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
+      <FILE id="me7zMZ" name="MFMParam.h" compile="0" resource="0" file="Source/MFMParam.h"/>
       <FILE id="jelODI" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
       <FILE id="iDBbT2" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>

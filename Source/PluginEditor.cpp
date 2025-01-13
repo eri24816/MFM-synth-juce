@@ -14,7 +14,8 @@ PhysicsBasedSynthAudioProcessorEditor::PhysicsBasedSynthAudioProcessorEditor (Ph
 	: AudioProcessorEditor(&p), audioProcessor(p), 
 	mainParamComponent(p, "Main", {
 		{"Gain", "gain"},
-		{"Wet Dry", "wet_dry"}
+		{"Wet Dry", "wet_dry"},
+		{"Attack", "attack"},
 		})
 {
 	setSize(1000, 700);
