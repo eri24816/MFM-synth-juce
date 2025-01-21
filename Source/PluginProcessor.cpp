@@ -6,6 +6,7 @@
   ==============================================================================
 */
 
+#include "Notation.h"
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include <filesystem>
@@ -115,6 +116,9 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
     mySynth.setCurrentPlaybackSampleRate(sampleRate);
+
+	testNotationToParameters2();
+	
 
  //   dsp::ProcessSpec spec;
  //   spec.sampleRate = sampleRate;

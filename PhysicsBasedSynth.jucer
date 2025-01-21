@@ -2,7 +2,8 @@
 
 <JUCERPROJECT id="guUdRR" name="MFMSynth" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="1" jucerFormatVersion="1" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
-              pluginFormats="buildVST3" pluginName="MFMSynth" pluginDesc="MFM Synthesizer">
+              pluginFormats="buildVST3" pluginName="MFMSynth" pluginDesc="MFM Synthesizer"
+              headerPath="C:\Users\a931e\opencv\build\include&#10;C:\Users\a931e\opencv\build\x64\vc16\lib">
   <MAINGROUP id="Kz5Htd" name="MFMSynth">
     <GROUP id="{9A49C777-E63D-FDF6-E7BE-B1031F3C0961}" name="Source">
       <GROUP id="{71B805D9-CB25-5D4A-8836-5CBCA643F001}" name="cnpy">
@@ -23,6 +24,8 @@
       <FILE id="me7zMZ" name="MFMParam.h" compile="0" resource="0" file="Source/MFMParam.h"/>
       <FILE id="jelODI" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
+      <FILE id="AePkw9" name="Notation.cpp" compile="1" resource="0" file="Source/Notation.cpp"/>
+      <FILE id="MyZJQo" name="Notation.h" compile="0" resource="0" file="Source/Notation.h"/>
       <FILE id="iDBbT2" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>
@@ -46,8 +49,8 @@
   <EXPORTFORMATS>
     <VS2022 targetFolder="Builds/VisualStudio2022">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="0" name="Release" targetName="MFMSynth"/>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="MFMSynth_debug"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="MFMSynth" libraryPath="C:\Users\a931e\opencv\build\x64\vc16\lib"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="MFMSynth_debug" libraryPath="C:\Users\a931e\opencv\build\x64\vc16\lib"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="C:\JUCE\modules"/>
