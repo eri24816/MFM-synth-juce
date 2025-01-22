@@ -22,7 +22,7 @@ cnpy::NpyArray cnpy::read_npz(std::string path, std::string key) {
     juce::Logger::writeToLog("reading npz file:  key: " + key);
     juce::Logger::writeToLog("shape: " + vector_to_string(arr.shape));
     juce::Logger::writeToLog("data: " + vector_to_string_(arr.as_vec<float>()));
-    free(stream);
+    delete stream;
     return arr;
 }
 

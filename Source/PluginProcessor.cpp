@@ -13,7 +13,6 @@
 
 using namespace juce;
 
-
 //==============================================================================
 PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -130,12 +129,14 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
  //       0
  //   );
  //   dryBuffer.setSize(spec.numChannels, spec.maximumBlockSize);
-	loadMfmParamsFromFolder("W:\\mfm\\MFM_Synthsizer\\data\\violin\\sustain\\table");
+	loadMfmParamsFromFolder("W:\\mfm\\MFM_Synthesizer\\data\\violin\\sustain\\table");
+    auto imagePath = "W:\\mfm\\MFM_Synthesizer\\data\\notation\\06_A4.png";
+    mfmControls["test"] = std::make_shared<MFMControl>(notationToControl(imagePath));
 	for (int i = 0; i < mySynth.getNumVoices(); i++)
 	{
 		if (auto synthVoice = dynamic_cast<SynthVoice*>(mySynth.getVoice(i)))
 		{
-            synthVoice->prepareToPlay(mfmParams);
+			synthVoice->prepareToPlay(mfmParams, mfmControls);
 		}
 	}
 }
@@ -260,7 +261,9 @@ AudioProcessorValueTreeState::ParameterLayout PhysicsBasedSynthAudioProcessor::c
 	// general parameters
     // gain
 	params.push_back(std::make_unique<AudioParameterFloat>("gain", "Gain", 0.0f, 5.0f, 1));
-	params.push_back(std::make_unique<AudioParameterFloat>("wet_dry", "Wet Dry", 0.0f, 1.0f, 0.5f));
+	params.push_back(std::make_unique<AudioParameterFloat>("wetDry", "Wet Dry", 0.0f, 1.0f, 0.5f));
 	params.push_back(std::make_unique<AudioParameterFloat>("attack", "Attack", 0.0f, 2.0f, 1.0f));
+	params.push_back(std::make_unique<AudioParameterFloat>("loopStart", "Loop Start", 0.0f, 5.0f, 0.5f));
+    params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 2.0f));
     return { params.begin(), params.end() };
 }

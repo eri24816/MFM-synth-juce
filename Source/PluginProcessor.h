@@ -12,6 +12,7 @@
 #include "SynthVoice.h"
 #include "SynthSound.h"
 #include "MFMParam.h"
+#include "MFMControl.h"
  
 //==============================================================================
 /**
@@ -69,6 +70,7 @@ private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
 	std::map<int,std::shared_ptr<MFMParam>> mfmParams;
+	std::map<std::string, std::shared_ptr<MFMControl>> mfmControls;
 
 	void loadMfmParamsFromFolder(std::string path);
 

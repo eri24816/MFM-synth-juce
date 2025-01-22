@@ -15,11 +15,55 @@
 #include <memory>
 #include <vector>
 #include "MFMParam.h"
+#include "MFMControl.h"
 
 
 
 using namespace juce;
 
+namespace {
+    float sampleFromArray(float* array, float index) {
+        int i = (int)index;
+        float a = array[i];
+        float b = array[i + 1];
+        float interp = index - i;
+        return a * (1 - interp) + b * interp;
+    }
+
+    class LoopSampler {
+	public:
+		LoopSampler(float* array, float loopStart, float loopEnd, float overlap = 0) :
+            array(array), 
+            loopStart(loopStart), 
+            loopEnd(loopEnd),
+			overlap(overlap)
+        {
+			loopLength = loopEnd - loopStart;
+		}
+		float sample(float index, int indexOffset) {
+			if (index < loopEnd) {
+				return sampleFromArray(array, indexOffset + index);
+			}
+			index = fmod(index - loopStart, loopLength);
+            if (index < overlap) {
+				const float lerp = index / overlap;
+				return sampleFromArray(array, indexOffset + loopStart + index) * lerp 
+                    + sampleFromArray(array, indexOffset + loopEnd + index) * (1 - lerp);
+            }
+			return sampleFromArray(array, indexOffset + loopStart + index);
+		}
+
+	private:
+		float* array;
+		float loopStart, loopEnd, loopLength, overlap;
+	};
+}
+
+enum class VoiceState {
+	SUSTAIN,
+	RELEASE,
+	IDLE
+};
 
 class SynthVoice : public juce::SynthesiserVoice
 {
@@ -27,8 +71,9 @@ public:
 
 	SynthVoice() {}
 
-    void prepareToPlay(std::map<int,std::shared_ptr<MFMParam>>& mfmParams) {
+    void prepareToPlay(std::map<int,std::shared_ptr<MFMParam>>& mfmParams, std::map<std::string, std::shared_ptr<MFMControl>>& mfmControls){
         this->mfmParams = mfmParams;
+		this->mfmControls = mfmControls;
     }
 
     bool canPlaySound (juce::SynthesiserSound* sound) override
@@ -53,8 +98,20 @@ public:
 			return;
         }
 
+        // select param
 		param = mfmParams[midiNoteNumber];
-        noteStopped = false;
+
+		// initialize loop samplers
+		const float loopStart = getParam("loopStart") * param->param_sr;
+		const float loopEnd = std::fmin(getParam("loopEnd") * param->param_sr, param->num_samples);
+		const float loopOverlap = 0.5 * param->param_sr;
+		magGlobal = std::make_unique<LoopSampler>(param->magGlobal.get(), loopStart, loopEnd, loopOverlap);
+		alphaGlobal = std::make_unique<LoopSampler>(param->alphaGlobal.get(), loopStart, loopEnd, loopOverlap);
+
+		// select control
+		control = mfmControls["test"];
+
+		state = VoiceState::SUSTAIN;
         timeAfterNoteStop = 0;
         time = 0;
 		for (int i = 0; i < param->num_partials; i++) {
@@ -70,7 +127,7 @@ public:
     void stopNote (float velocity, bool allowTailOff) override
     {
         if (allowTailOff) {
-            noteStopped = true;
+			state = VoiceState::RELEASE;
         }
         else {
             clearCurrentNote();
@@ -92,53 +149,52 @@ public:
 		if(param == nullptr) {
 	        return;
         }
+		if (state == VoiceState::IDLE) {
+			return;
+		}
+		if (state == VoiceState::RELEASE && timeAfterNoteStop > 0.3) {
+			clearCurrentNote();
+			state = VoiceState::IDLE;
+			return;
+		}
 
-
+		// precompute some constants outside the sample loop
+        float recip_two_pi = 1.0f / (2 * float_Pi);
+        float twoPi = 2 * float_Pi;
         const float dt = 1.0 / getSampleRate();
-		const float gain = getParam("gain");
-        float u_float = time * param->param_sr;
-		int u = juce::roundToInt(u_float-0.5);
-		float interp_a = (u_float - u);
-		float interp_b = 1 - interp_a;
+        const float attackFactor = 1.0f / param->envelope[(int)(((float)param->attackLen) / param->sampleRate * param->param_sr) - 1];
 
-		float recip_two_pi = 1.0f / (2 * float_Pi);
-		float two_pi = 2 * float_Pi;
-
-		const float attackFactor = 1.0f / param->envelope[(int)(((float)param->attackLen)/param->sampleRate*param->param_sr) - 1];
+		// parameters
+        const float gain = getParam("gain");
+        
+        float pIdx = time * param->param_sr;
 
 
         for (int sample = 0; sample < numSamples; ++sample)
         {
             time += dt;
 			float y = 0;
-            
-			if (u + 1 < param->num_samples)
-			{
-                for (int i = 0; i < param->num_partials; i++) {
-				    int n = i + 1;
-				    const float mag = param->magGlobal[i * param->num_samples + u] * interp_a + param->magGlobal[i * param->num_samples + u + 1] * interp_b;
-					if (mag > 10 || mag < -10) {
-						throw std::runtime_error("mag is too large");
-					}
-					ft[i] += frequency * n * dt;
 
-					// limit 2pift in -pi to pi
-					if (ft[i] > 0.5) {
-						ft[i] -= 1;
-					}
-					float alpha = param->alphaGlobal[i * param->num_samples + u] * interp_a + param->alphaGlobal[i * param->num_samples + u + 1] * interp_b;
-					float stuff_in_sin = 2 * float_Pi * ft[i] + alpha;
-					stuff_in_sin = stuff_in_sin - two_pi * juce::roundToInt(stuff_in_sin * recip_two_pi);
-					y += mag * juce::dsp::FastMathApproximations::sin(stuff_in_sin);
-                }
-			}
-            if (noteStopped) {
+            
+            
+            for (int i = 0; i < param->num_partials; i++) {
+				int n = i + 1;
+				const float mag = magGlobal->sample(pIdx, i * param->num_samples);
+				ft[i] += frequency * n * dt;
+
+				// limit 2 pi f t in -pi to pi
+				if (ft[i] > 0.5) {
+					ft[i] -= 1;
+				}
+				float alpha = alphaGlobal->sample(pIdx, i * param->num_samples);
+                float stuff_in_sin = 2 * float_Pi * ft[i] + alpha;
+				stuff_in_sin = stuff_in_sin - twoPi * juce::roundToInt(stuff_in_sin * recip_two_pi);
+				y += mag * juce::dsp::FastMathApproximations::sin(stuff_in_sin);
+            }
+			
+			if (state == VoiceState::RELEASE) {
                 timeAfterNoteStop += dt;
-				y *= 1 - timeAfterNoteStop / 0.3;
-                if (timeAfterNoteStop > 0.3) {
-                    clearCurrentNote();
-                    return;
-                }
+				y *= exp(-timeAfterNoteStop * 10);
             }
 
 
@@ -180,9 +236,16 @@ private:
     double frequency;
 
     float timeAfterNoteStop;
-    bool noteStopped = false;
+	enum VoiceState state = VoiceState::IDLE;
+
 	std::map<int, std::shared_ptr<MFMParam>>& mfmParams = *new std::map<int, std::shared_ptr<MFMParam>>();
     std::shared_ptr<MFMParam> param;
+	std::unique_ptr<LoopSampler> magGlobal;
+	std::unique_ptr<LoopSampler> alphaGlobal;
+
+	std::map<std::string, std::shared_ptr<MFMControl>>& mfmControls = *new std::map<std::string, std::shared_ptr<MFMControl>>();
+	std::shared_ptr<MFMControl> control;
+
 
 
 	float getParam(String paramId)

@@ -21,6 +21,7 @@
       <FILE id="c8c8Kv" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
       <FILE id="me7zMZ" name="MFMParam.h" compile="0" resource="0" file="Source/MFMParam.h"/>
+      <FILE id="peyEkM" name="MFMControl.h" compile="0" resource="0" file="Source/MFMControl.h"/>
       <FILE id="jelODI" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
       <FILE id="iDBbT2" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
