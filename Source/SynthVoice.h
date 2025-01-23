@@ -57,6 +57,26 @@ namespace {
 		float* array;
 		float loopStart, loopEnd, loopLength, overlap;
 	};
+
+	class TailSampler {
+	public:
+		TailSampler(float* array, int length, float rightMargin) :
+			array(array),
+			length(length),
+			rightMargin(rightMargin)
+		{
+			jassert(rightMargin < length);
+		}
+		float sample(float index, int indexOffset) {
+			index = std::fmin(length-1-rightMargin, index);
+			return sampleFromArray(array, indexOffset + index);
+		}
+
+	private:
+		float* array;
+		int length;
+		float rightMargin;
+	};
 }
 
 enum class VoiceState {
@@ -71,9 +91,15 @@ public:
 
 	SynthVoice() {}
 
-    void prepareToPlay(std::map<int,std::shared_ptr<MFMParam>>& mfmParams, std::map<std::string, std::shared_ptr<MFMControl>>& mfmControls){
+    void prepareToPlay(
+        std::map<int, std::shared_ptr<MFMParam>>& mfmParams,
+        std::map<std::string, std::shared_ptr<MFMControl>>& mfmControls,
+        char currentNoteChannel[128]
+    ){
         this->mfmParams = mfmParams;
 		this->mfmControls = mfmControls;
+		this->currentNoteChannel = currentNoteChannel;
+		
     }
 
     bool canPlaySound (juce::SynthesiserSound* sound) override
@@ -95,6 +121,7 @@ public:
         if (mfmParams.find(midiNoteNumber) == mfmParams.end()) {
 			param.reset();
 			clearCurrentNote();
+            state = VoiceState::IDLE;
 			return;
         }
 
@@ -111,6 +138,14 @@ public:
 		// select control
 		control = mfmControls["test"];
 
+		intensityS = std::make_unique<TailSampler>(control->intensity.get(), control->length, 5);
+		pitchS = std::make_unique<TailSampler>(control->pitch.get(), control->length, 5);
+		densityS = std::make_unique<TailSampler>(control->density.get(), control->length, 5);
+		hueS = std::make_unique<TailSampler>(control->hue.get(), control->length, 5);
+		saturationS = std::make_unique<TailSampler>(control->saturation.get(), control->length, 5);
+		valueS = std::make_unique<TailSampler>(control->value.get(), control->length, 5);
+
+
 		state = VoiceState::SUSTAIN;
         timeAfterNoteStop = 0;
         time = 0;
@@ -119,7 +154,7 @@ public:
 		}
 		this->pitch = midiNoteNumber;
         this->velocity = velocity;
-        frequency = MidiMessage::getMidiNoteInHertz(midiNoteNumber);
+        baseFrequency = MidiMessage::getMidiNoteInHertz(midiNoteNumber);
         //frequency = param->base_freq;
         
     }
@@ -164,10 +199,53 @@ public:
         const float dt = 1.0 / getSampleRate();
         const float attackFactor = 1.0f / param->envelope[(int)(((float)param->attackLen) / param->sampleRate * param->param_sr) - 1];
 
-		// parameters
         const float gain = getParam("gain");
         
         float pIdx = time * param->param_sr;
+		
+		// control
+		
+		float timbreGain = 1.4;
+
+		float cIdx = time * 50.0f; // 50 Hz control rate
+		float intensity = intensityS->sample(cIdx, 0);
+		float pitch = pitchS->sample(cIdx, 0);
+		float density = densityS->sample(cIdx, 0);
+		float hue = hueS->sample(cIdx, 0);
+		float saturation = saturationS->sample(cIdx, 0);
+		float value = valueS->sample(cIdx, 0);
+
+		// translate controls to control vector
+		hue = std::fmin(hue, 135);
+		hue = std::max(hue, 0.0f);
+		float bowPos = 1 / (hue / 135 * 5 + 2);
+
+		const float frequency = baseFrequency * exp2f(pitch / 12); // pitch in semitones
+
+		float magControl[100] = { 1 };
+		float alphaControl[100] = { 1 };
+
+		for (int i = 0; i < param->num_partials; i++) {
+			int n = i + 1;
+			float overtoneFreq = frequency * n;
+			// apply intensity
+			magControl[i] = intensity;
+			// apply bowPos
+			magControl[i] *= (1 - (1 - std::fmin(std::abs(n - (1.0f / bowPos)), 1)) * (timbreGain - 1));
+
+			// apply saturation
+			if (overtoneFreq <= 1000) {
+				magControl[i] *= pow(10, (-4 + saturation * 6) / 20);
+			}
+
+			// apply value
+			if (overtoneFreq >= 5000) {
+				magControl[i] *= pow(10, (-4 + value * 6) / 20);
+			}
+
+			alphaControl[i] = 1;
+			//TODO: apply density to noise
+		}
 
 
         for (int sample = 0; sample < numSamples; ++sample)
@@ -175,18 +253,16 @@ public:
             time += dt;
 			float y = 0;
 
-            
-            
             for (int i = 0; i < param->num_partials; i++) {
 				int n = i + 1;
-				const float mag = magGlobal->sample(pIdx, i * param->num_samples);
+				const float mag = magGlobal->sample(pIdx, i * param->num_samples) * magControl[i];
 				ft[i] += frequency * n * dt;
 
 				// limit 2 pi f t in -pi to pi
 				if (ft[i] > 0.5) {
 					ft[i] -= 1;
 				}
-				float alpha = alphaGlobal->sample(pIdx, i * param->num_samples);
+				float alpha = alphaGlobal->sample(pIdx, i * param->num_samples) * alphaControl[i];
                 float stuff_in_sin = 2 * float_Pi * ft[i] + alpha;
 				stuff_in_sin = stuff_in_sin - twoPi * juce::roundToInt(stuff_in_sin * recip_two_pi);
 				y += mag * juce::dsp::FastMathApproximations::sin(stuff_in_sin);
@@ -197,7 +273,7 @@ public:
 				y *= exp(-timeAfterNoteStop * 10);
             }
 
-
+			// If we are in the attack phase, apply the attack
             int attackU = juce::roundToInt(time * param->sampleRate);
             if (attackU < param->attackLen) {
                 int startOverlap = param->attackLen - param->overlapLen;
@@ -221,6 +297,7 @@ public:
 				outputBuffer.addSample(channel, startSample, y * gain * 0.1);
             }
             ++startSample;
+
         }
     }
 
@@ -233,7 +310,7 @@ private:
 	std::vector<float> ft = std::vector<float>(100);
     int pitch;
     double velocity;
-    double frequency;
+    double baseFrequency;
 
     float timeAfterNoteStop;
 	enum VoiceState state = VoiceState::IDLE;
@@ -246,7 +323,9 @@ private:
 	std::map<std::string, std::shared_ptr<MFMControl>>& mfmControls = *new std::map<std::string, std::shared_ptr<MFMControl>>();
 	std::shared_ptr<MFMControl> control;
 
+	std::unique_ptr<TailSampler> intensityS, pitchS, densityS, hueS, saturationS, valueS;
 
+	char* currentNoteChannel;
 
 	float getParam(String paramId)
 	{

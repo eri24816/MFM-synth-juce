@@ -72,6 +72,8 @@ private:
 	std::map<int,std::shared_ptr<MFMParam>> mfmParams;
 	std::map<std::string, std::shared_ptr<MFMControl>> mfmControls;
 
+    char currentNoteChannel[128] = { 1 };
+
 	void loadMfmParamsFromFolder(std::string path);
 
 

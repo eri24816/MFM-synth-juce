@@ -130,13 +130,14 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
  //   );
  //   dryBuffer.setSize(spec.numChannels, spec.maximumBlockSize);
 	loadMfmParamsFromFolder("W:\\mfm\\MFM_Synthesizer\\data\\violin\\sustain\\table");
-    auto imagePath = "W:\\mfm\\MFM_Synthesizer\\data\\notation\\06_A4.png";
+    //auto imagePath = "W:\\mfm\\MFM_Synthesizer\\data\\notation\\06_A4.png";
+    auto imagePath = "W:\\mfm\\MFM_Synthesizer\\data\\notation\\08_72.png";
     mfmControls["test"] = std::make_shared<MFMControl>(notationToControl(imagePath));
 	for (int i = 0; i < mySynth.getNumVoices(); i++)
 	{
 		if (auto synthVoice = dynamic_cast<SynthVoice*>(mySynth.getVoice(i)))
 		{
-			synthVoice->prepareToPlay(mfmParams, mfmControls);
+            synthVoice->prepareToPlay(mfmParams, mfmControls, currentNoteChannel);
 		}
 	}
 }
@@ -182,6 +183,18 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
+
+	//print all midi messages
+	MidiBuffer::Iterator it(midiMessages);
+	MidiMessage message;
+	int sampleNumber;
+    while (it.getNextEvent(message, sampleNumber)) {
+		if (message.isNoteOn()) {
+            const int midiChannel = message.getChannel();
+            const int midiNote = message.getNoteNumber();
+			currentNoteChannel[midiNote] = midiChannel;
+        }
+    }
 
     mySynth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     // dry signal
