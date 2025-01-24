@@ -130,17 +130,39 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
  //   );
  //   dryBuffer.setSize(spec.numChannels, spec.maximumBlockSize);
 	loadMfmParamsFromFolder("W:\\mfm\\MFM_Synthesizer\\data\\violin\\sustain\\table");
-    //auto imagePath = "W:\\mfm\\MFM_Synthesizer\\data\\notation\\06_A4.png";
-    auto imagePath = "W:\\mfm\\MFM_Synthesizer\\data\\notation\\08_72.png";
-    mfmControls["test"] = std::make_shared<MFMControl>(notationToControl(imagePath));
 	for (int i = 0; i < mySynth.getNumVoices(); i++)
 	{
 		if (auto synthVoice = dynamic_cast<SynthVoice*>(mySynth.getVoice(i)))
 		{
-            synthVoice->prepareToPlay(mfmParams, mfmControls, currentNoteChannel);
+			synthVoice->prepareToPlay(&mfmParams, &mfmControls, &channelToImage, currentNoteChannel);
 		}
 	}
+
+	// load all notation images
+    std::vector<juce::String> notationPaths;
+    std::string notationDir = "W:\\mfm\\MFM_Synthesizer\\data\\notation";
+    for (const auto& entry : std::filesystem::directory_iterator(notationDir))
+    {
+        if (entry.path().extension() == ".png")
+        {
+            notationPaths.push_back(entry.path().string());
+        }
+    }
+    for (juce::String path : notationPaths)
+    {
+        auto name = File(path).getFileNameWithoutExtension();
+       
+        addNotation(name, juce::File(path));
+    }
 }
+
+void PhysicsBasedSynthAudioProcessor::addNotation(juce::String name, juce::File image) {
+    images[name] = ImageFileFormat::loadFrom(image);
+	channelToImage[channelToImage.size()+1] = name;
+    mfmControls[name] = std::make_shared<MFMControl>(notationToControl(image));
+	imagesDataVersion++;
+}
+
 
 
 void PhysicsBasedSynthAudioProcessor::releaseResources()
@@ -196,6 +218,8 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
         }
     }
 
+
+
     mySynth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
     // dry signal
     
@@ -246,10 +270,10 @@ void PhysicsBasedSynthAudioProcessor::setStateInformation (const void* data, int
             valueTree.replaceState(juce::ValueTree::fromXml(*xmlState));
 }
 
-void PhysicsBasedSynthAudioProcessor::loadMfmParamsFromFolder(std::string path)
+void PhysicsBasedSynthAudioProcessor::loadMfmParamsFromFolder(juce::String path)
 {
 	mfmParams.clear();
-	for (const auto& entry : std::filesystem::directory_iterator(path))
+	for (const auto& entry : std::filesystem::directory_iterator(path.toStdString()))
 	{
 		if (entry.path().extension() == ".npz")
 		{

@@ -10,6 +10,7 @@
         <FILE id="GsXfTw" name="cnpy.h" compile="0" resource="0" file="Source/cnpy/cnpy.h"/>
       </GROUP>
       <GROUP id="{FFBCF1CE-1197-400C-2CC8-D1E60E0A08D1}" name="GUI">
+        <FILE id="CYkcjh" name="Components.h" compile="0" resource="0" file="Source/GUI/Components.h"/>
         <FILE id="QAdTed" name="SliderGroup.cpp" compile="1" resource="0" file="Source/GUI/SliderGroup.cpp"/>
         <FILE id="FjiVMv" name="SliderGroup.h" compile="0" resource="0" file="Source/GUI/SliderGroup.h"/>
         <FILE id="mQzY51" name="Util.h" compile="0" resource="0" file="Source/GUI/Util.h"/>

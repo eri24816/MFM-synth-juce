@@ -40,10 +40,10 @@ namespace {
 
     }
 
-    MFMControl notationToControl(std::string path) {
+	MFMControl notationToControl(juce::File image) {
 
         MemoryBlock fileData;
-        File(path).loadFileAsData(fileData);
+        image.loadFileAsData(fileData);
 
         auto postData = new juce::DynamicObject();
         postData->setProperty("image", Base64::toBase64(fileData.getData(), fileData.getSize()));

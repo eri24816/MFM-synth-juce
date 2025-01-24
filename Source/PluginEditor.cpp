@@ -8,6 +8,7 @@
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <filesystem>
 
 //==============================================================================
 PhysicsBasedSynthAudioProcessorEditor::PhysicsBasedSynthAudioProcessorEditor (PhysicsBasedSynthAudioProcessor& p)
@@ -18,11 +19,14 @@ PhysicsBasedSynthAudioProcessorEditor::PhysicsBasedSynthAudioProcessorEditor (Ph
 		{"Attack", "attack"},
 		{"Loop Start", "loopStart"},
 		{"Loop End", "loopEnd"}
-		})
+		}),
+	imageShowcase(p)
 {
 	setSize(1000, 700);
 
+	imageShowcaseViewport.setViewedComponent(&imageShowcase, false);
 	addAndMakeVisible(mainParamComponent);
+	addAndMakeVisible(imageShowcaseViewport);
 }
 
 PhysicsBasedSynthAudioProcessorEditor::~PhysicsBasedSynthAudioProcessorEditor()
@@ -46,5 +50,6 @@ void PhysicsBasedSynthAudioProcessorEditor::resized()
 	fb.flexDirection = FlexBox::Direction::row;
 
 	fb.items.add(FlexItem(mainParamComponent).withFlex(1).withMargin(5));
+	fb.items.add(FlexItem(imageShowcaseViewport).withFlex(1).withMargin(5));
 	fb.performLayout(area);
 }

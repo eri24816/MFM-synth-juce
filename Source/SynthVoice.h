@@ -92,14 +92,15 @@ public:
 	SynthVoice() {}
 
     void prepareToPlay(
-        std::map<int, std::shared_ptr<MFMParam>>& mfmParams,
-        std::map<std::string, std::shared_ptr<MFMControl>>& mfmControls,
-        char currentNoteChannel[128]
+        std::map<int, std::shared_ptr<MFMParam>>* mfmParams,
+        std::map<juce::String, std::shared_ptr<MFMControl>>* mfmControls,
+		std::map<int, juce::String>* channelToImage,
+        int currentNoteChannel[128]
     ){
         this->mfmParams = mfmParams;
 		this->mfmControls = mfmControls;
 		this->currentNoteChannel = currentNoteChannel;
-		
+		this->channelToImage = channelToImage;
     }
 
     bool canPlaySound (juce::SynthesiserSound* sound) override
@@ -118,7 +119,7 @@ public:
     void startNote (int midiNoteNumber, float velocity, SynthesiserSound* sound, int currentPitchWheelPosition) override
     {
 		// if mfmParams do not have midiNoteNumber, play nothing
-        if (mfmParams.find(midiNoteNumber) == mfmParams.end()) {
+        if (mfmParams->find(midiNoteNumber) == mfmParams->end()) {
 			param.reset();
 			clearCurrentNote();
             state = VoiceState::IDLE;
@@ -126,7 +127,7 @@ public:
         }
 
         // select param
-		param = mfmParams[midiNoteNumber];
+		param = (*mfmParams)[midiNoteNumber];
 
 		// initialize loop samplers
 		const float loopStart = getParam("loopStart") * param->param_sr;
@@ -136,7 +137,23 @@ public:
 		alphaGlobal = std::make_unique<LoopSampler>(param->alphaGlobal.get(), loopStart, loopEnd, loopOverlap);
 
 		// select control
-		control = mfmControls["test"];
+		/*juce::String controlToUse = (*channelToImage)[currentNoteChannel[midiNoteNumber]];
+		if (controlToUse == nullptr) {
+			state = VoiceState::IDLE;
+			return;
+		}*/
+
+		auto currentChannel = currentNoteChannel[midiNoteNumber];
+		if (channelToImage->find(currentChannel) == channelToImage->end()) {
+			state = VoiceState::IDLE;
+			return;
+		}
+		auto controlName = (*channelToImage)[currentChannel];
+		if (mfmControls->find(controlName) == mfmControls->end()) {
+			state = VoiceState::IDLE;
+			return;
+		}
+		auto control = (*mfmControls)[controlName];
 
 		intensityS = std::make_unique<TailSampler>(control->intensity.get(), control->length, 5);
 		pitchS = std::make_unique<TailSampler>(control->pitch.get(), control->length, 5);
@@ -315,17 +332,19 @@ private:
     float timeAfterNoteStop;
 	enum VoiceState state = VoiceState::IDLE;
 
-	std::map<int, std::shared_ptr<MFMParam>>& mfmParams = *new std::map<int, std::shared_ptr<MFMParam>>();
+	std::map<int, std::shared_ptr<MFMParam>>* mfmParams = nullptr;
     std::shared_ptr<MFMParam> param;
 	std::unique_ptr<LoopSampler> magGlobal;
 	std::unique_ptr<LoopSampler> alphaGlobal;
 
-	std::map<std::string, std::shared_ptr<MFMControl>>& mfmControls = *new std::map<std::string, std::shared_ptr<MFMControl>>();
+	std::map<juce::String, std::shared_ptr<MFMControl>>* mfmControls = nullptr;
 	std::shared_ptr<MFMControl> control;
+
+	std::map<int, juce::String>* channelToImage = nullptr;
 
 	std::unique_ptr<TailSampler> intensityS, pitchS, densityS, hueS, saturationS, valueS;
 
-	char* currentNoteChannel;
+	int* currentNoteChannel;
 
 	float getParam(String paramId)
 	{

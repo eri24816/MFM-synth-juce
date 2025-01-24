@@ -59,6 +59,13 @@ public:
 
     juce::AudioProcessorValueTreeState valueTree;
 
+    void addNotation(juce::String name, juce::File image);
+
+    std::map<juce::String, juce::Image> images;
+	int imagesDataVersion = 0;
+
+	std::map<int, juce::String> channelToImage;
+
 private:
     juce::Synthesiser mySynth;
 
@@ -70,11 +77,11 @@ private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
 	std::map<int,std::shared_ptr<MFMParam>> mfmParams;
-	std::map<std::string, std::shared_ptr<MFMControl>> mfmControls;
+	std::map<juce::String, std::shared_ptr<MFMControl>> mfmControls;
 
-    char currentNoteChannel[128] = { 1 };
+    int currentNoteChannel[128] = { 1 };
 
-	void loadMfmParamsFromFolder(std::string path);
+	void loadMfmParamsFromFolder(juce::String path);
 
 
     //==============================================================================
