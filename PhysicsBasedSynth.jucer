@@ -25,8 +25,6 @@
       <FILE id="peyEkM" name="MFMControl.h" compile="0" resource="0" file="Source/MFMControl.h"/>
       <FILE id="jelODI" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
-      <FILE id="kEsUN8" name="juce_serialport.h" compile="0" resource="0"
-            file="Source/juce_serialport.h"/>
       <FILE id="iDBbT2" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>
