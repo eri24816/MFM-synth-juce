@@ -49,7 +49,7 @@ namespace {
         postData->setProperty("image", Base64::toBase64(fileData.getData(), fileData.getSize()));
         auto postStr = JSON::toString(postData);
         auto utf8 = postStr.toRawUTF8();
-        auto response = URL("http://localhost:8000/analyze-notation").withPOSTData(utf8).readEntireTextStream();
+        auto response = URL("http://localhost:9649/analyze-notation").withPOSTData(utf8).readEntireTextStream();
         auto json = JSON::parse(response);
         int length = json["control_length"];
         MFMControl control(length);
@@ -61,5 +61,5 @@ namespace {
         control.value = convertFromBase64(json["value"].toString());
         return control;
     }
-
+    
 }

@@ -10,8 +10,19 @@
 #include "PluginEditor.h"
 #include <filesystem>
 #include <memory>
+#include "juce_serialport.h"
+
+#include <iostream>
+
 
 using namespace juce;
+
+
+//auto response = URL("http://localhost:8000/serial").readEntireTextStream();
+
+
+
+
 
 //==============================================================================
 PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
@@ -26,7 +37,8 @@ PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
                        ) 
 #endif
 
-    ,valueTree(*this, nullptr, "Parameters", createParameters())
+    ,valueTree(*this, nullptr, "Parameters", createParameters()),
+	networkThread(&mfmControls)
 {
     mySynth.clearVoices();
 
@@ -44,6 +56,7 @@ PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
 
 PhysicsBasedSynthAudioProcessor::~PhysicsBasedSynthAudioProcessor()
 {
+	networkThread.stopThread(1000);
 }
 
 //==============================================================================
@@ -154,11 +167,23 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
        
         addNotation(name, juce::File(path));
     }
+
+    auto dynamicControl = std::make_shared<MFMControl>(1);
+	dynamicControl->intensity[0] = 0.8;
+	dynamicControl->pitch[0] = 0;
+	dynamicControl->density[0] = 0.8;
+	dynamicControl->hue[0] = 0.5;
+	dynamicControl->saturation[0] = 0.5;
+	dynamicControl->value[0] = 0.5;
+	mfmControls["__dynamic__"] = dynamicControl;
+	channelToImage[1] = "__dynamic__";
+
+    networkThread.startThread();
 }
 
 void PhysicsBasedSynthAudioProcessor::addNotation(juce::String name, juce::File image) {
     images[name] = ImageFileFormat::loadFrom(image);
-	channelToImage[channelToImage.size()+1] = name;
+	channelToImage[channelToImage.size() + 2] = name; // 1 is for the dynamic control
     mfmControls[name] = std::make_shared<MFMControl>(notationToControl(image));
 	imagesDataVersion++;
 }
@@ -239,7 +264,6 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
 
 	//// add dry signal
 	//context.getOutputBlock().add<float>(dryBuffer);
-
 }
 
 //==============================================================================

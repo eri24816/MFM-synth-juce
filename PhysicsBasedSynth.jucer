@@ -25,6 +25,8 @@
       <FILE id="peyEkM" name="MFMControl.h" compile="0" resource="0" file="Source/MFMControl.h"/>
       <FILE id="jelODI" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
+      <FILE id="kEsUN8" name="juce_serialport.h" compile="0" resource="0"
+            file="Source/juce_serialport.h"/>
       <FILE id="iDBbT2" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>
@@ -48,8 +50,8 @@
   <EXPORTFORMATS>
     <VS2022 targetFolder="Builds/VisualStudio2022">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="0" name="Release" targetName="MFMSynth"/>
         <CONFIGURATION isDebug="1" name="Debug" targetName="MFMSynth_debug"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="MFMSynth"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="C:\JUCE\modules"/>

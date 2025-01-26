@@ -60,7 +60,7 @@ namespace {
 
 	class TailSampler {
 	public:
-		TailSampler(float* array, int length, float rightMargin) :
+		TailSampler(float* array, int length, float rightMargin=0) :
 			array(array),
 			length(length),
 			rightMargin(rightMargin)
@@ -68,6 +68,9 @@ namespace {
 			jassert(rightMargin < length);
 		}
 		float sample(float index, int indexOffset) {
+			if (length == 1) {
+				return array[0];
+			}
 			index = std::fmin(length-1-rightMargin, index);
 			return sampleFromArray(array, indexOffset + index);
 		}
@@ -155,12 +158,13 @@ public:
 		}
 		auto control = (*mfmControls)[controlName];
 
-		intensityS = std::make_unique<TailSampler>(control->intensity.get(), control->length, 5);
-		pitchS = std::make_unique<TailSampler>(control->pitch.get(), control->length, 5);
-		densityS = std::make_unique<TailSampler>(control->density.get(), control->length, 5);
-		hueS = std::make_unique<TailSampler>(control->hue.get(), control->length, 5);
-		saturationS = std::make_unique<TailSampler>(control->saturation.get(), control->length, 5);
-		valueS = std::make_unique<TailSampler>(control->value.get(), control->length, 5);
+		int rightMargin = std::min(control->length-1, 5);
+		intensityS = std::make_unique<TailSampler>(control->intensity.get(), control->length, rightMargin);
+		pitchS = std::make_unique<TailSampler>(control->pitch.get(), control->length, rightMargin);
+		densityS = std::make_unique<TailSampler>(control->density.get(), control->length, rightMargin);
+		hueS = std::make_unique<TailSampler>(control->hue.get(), control->length, rightMargin);
+		saturationS = std::make_unique<TailSampler>(control->saturation.get(), control->length, rightMargin);
+		valueS = std::make_unique<TailSampler>(control->value.get(), control->length, rightMargin);
 
 
 		state = VoiceState::SUSTAIN;

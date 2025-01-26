@@ -44,7 +44,7 @@ void PhysicsBasedSynthAudioProcessorEditor::resized()
 {
     // This is generally where you'll want to lay out the positions of any
     // subcomponents in your editor..
-    Rectangle<int> area = getLocalBounds();
+    juce::Rectangle<int> area = getLocalBounds();
 
 	juce::FlexBox fb;
 	fb.flexDirection = FlexBox::Direction::row;
