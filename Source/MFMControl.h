@@ -40,7 +40,7 @@ namespace {
 
     }
 
-	MFMControl notationToControl(juce::File image) {
+    MFMControl notationToControl(juce::File image, juce::String serverUrl) {
 
         MemoryBlock fileData;
         image.loadFileAsData(fileData);
@@ -49,7 +49,7 @@ namespace {
         postData->setProperty("image", Base64::toBase64(fileData.getData(), fileData.getSize()));
         auto postStr = JSON::toString(postData);
         auto utf8 = postStr.toRawUTF8();
-        auto response = URL("http://localhost:9649/analyze-notation").withPOSTData(utf8).readEntireTextStream();
+        auto response = URL(serverUrl + "/analyze-notation").withPOSTData(utf8).readEntireTextStream();
         auto json = JSON::parse(response);
         int length = json["control_length"];
         MFMControl control(length);

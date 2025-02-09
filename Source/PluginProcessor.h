@@ -13,52 +13,22 @@
 #include "SynthSound.h"
 #include "MFMParam.h"
 #include "MFMControl.h"
-namespace {
-    class NetworkThread : public juce::Thread
+class PhysicsBasedSynthAudioProcessor;
+class NetworkThread : public juce::Thread
+{
+private:
+    std::map<juce::String, std::shared_ptr<MFMControl>>* mfmControls;
+	PhysicsBasedSynthAudioProcessor* p;
+public:
+	NetworkThread(std::map<juce::String, std::shared_ptr<MFMControl>>* mfmControls, PhysicsBasedSynthAudioProcessor* p)
+        : Thread("Network Thread")
+		, mfmControls(mfmControls),
+		p(p)
     {
-	private:
-        std::map<juce::String, std::shared_ptr<MFMControl>>* mfmControls;
-    public:
-		NetworkThread(std::map<juce::String, std::shared_ptr<MFMControl>>* mfmControls)
-            : Thread("Network Thread")
-			, mfmControls(mfmControls)
-        {
-        }
-        void run() override
-        {
-            while (!threadShouldExit())
-            {
-                auto response = URL("http://localhost:9649/serial").readEntireTextStream();
-				// trim '"' from response
-				response = response.substring(1, response.length() - 1);
-				//juce::Logger::writeToLog(response);
-				// skip if response is empty
-				if (!response.isEmpty()) {
-                    // response is a string with format "x1 x2 x3 x4 x5 x6 x7 x8", where x1 to x8 are 0-1023
-					int values[8] = { 0 };
-					int i = 0;
-					for (auto character : response) {
-						if (character == ' ') {
-							i++;
-						}
-						else {
-							values[i] = values[i] * 10 + (character - '0');
-						}
-					}
-					juce::Logger::writeToLog("Received: " + juce::String(values[0]) + " " + juce::String(values[1]) + " " + juce::String(values[2]) + " " + juce::String(values[3]) + " " + juce::String(values[4]) + " " + juce::String(values[5]) + " " + juce::String(values[6]) + " " + juce::String(values[7]));
-                    auto control = (*mfmControls)["__dynamic__"];
-					control->intensity[0] = values[0] / 1023.0;
-					control->density[0] = values[1] / 1023.0 - 0.5;
-					control->pitch[0] = values[2] / 1023.0;
-                    control->hue[0] = values[3] / 1023.0 * 140;
-					control->saturation[0] = values[4] / 1023.0;
-					control->value[0] = values[5] / 1023.0;
-                }
-                wait(100);
-            }
-        }
-    };
-}
+    }
+    void run() override;
+};
+
 
 //==============================================================================
 /**
@@ -115,6 +85,13 @@ public:
 
     std::map<int, std::shared_ptr<MFMParam>> mfmParams;
     std::map<juce::String, std::shared_ptr<MFMControl>> mfmControls;
+
+	void loadImages();
+	void loadParams();
+	void startNetworkThread();
+
+    void setState(juce::String name, juce::String value);
+	juce::String getState(juce::String name);
 
 private:
     juce::Synthesiser mySynth;

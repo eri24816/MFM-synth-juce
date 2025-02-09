@@ -10,7 +10,6 @@
 #include "PluginEditor.h"
 #include <filesystem>
 #include <memory>
-#include "juce_serialport.h"
 
 #include <iostream>
 
@@ -20,9 +19,39 @@ using namespace juce;
 
 //auto response = URL("http://localhost:8000/serial").readEntireTextStream();
 
-
-
-
+void NetworkThread::run()
+{
+    while (!threadShouldExit())
+    {
+        auto response = URL(p->getState("ServerUrl") + "/serial").readEntireTextStream();
+        // trim '"' from response
+        response = response.substring(1, response.length() - 1);
+        //juce::Logger::writeToLog(response);
+        // skip if response is empty
+        if (!response.isEmpty()) {
+            // response is a string with format "x1 x2 x3 x4 x5 x6 x7 x8", where x1 to x8 are 0-1023
+            int values[8] = { 0 };
+            int i = 0;
+            for (auto character : response) {
+                if (character == ' ') {
+                    i++;
+                }
+                else {
+                    values[i] = values[i] * 10 + (character - '0');
+                }
+            }
+            juce::Logger::writeToLog("Received: " + juce::String(values[0]) + " " + juce::String(values[1]) + " " + juce::String(values[2]) + " " + juce::String(values[3]) + " " + juce::String(values[4]) + " " + juce::String(values[5]) + " " + juce::String(values[6]) + " " + juce::String(values[7]));
+            auto control = (*mfmControls)["__dynamic__"];
+            control->intensity[0] = values[0] / 1023.0;
+            control->density[0] = values[1] / 1023.0;
+            control->pitch[0] = (values[2] / 1023.0 - 0.5) * 5;
+            control->hue[0] = values[3] / 1023.0 * 140;
+            control->saturation[0] = values[4] / 1023.0;
+            control->value[0] = values[5] / 1023.0;
+        }
+        wait(100);
+    }
+}
 
 //==============================================================================
 PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
@@ -38,7 +67,7 @@ PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
 #endif
 
     ,valueTree(*this, nullptr, "Parameters", createParameters()),
-	networkThread(&mfmControls)
+	networkThread(&mfmControls, this)
 {
     mySynth.clearVoices();
 
@@ -142,7 +171,7 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
  //       0
  //   );
  //   dryBuffer.setSize(spec.numChannels, spec.maximumBlockSize);
-	loadMfmParamsFromFolder("W:\\mfm\\MFM_Synthesizer\\data\\violin\\sustain\\table");
+
 	for (int i = 0; i < mySynth.getNumVoices(); i++)
 	{
 		if (auto synthVoice = dynamic_cast<SynthVoice*>(mySynth.getVoice(i)))
@@ -151,22 +180,7 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
 		}
 	}
 
-	// load all notation images
-    std::vector<juce::String> notationPaths;
-    std::string notationDir = "W:\\mfm\\MFM_Synthesizer\\data\\notation";
-    for (const auto& entry : std::filesystem::directory_iterator(notationDir))
-    {
-        if (entry.path().extension() == ".png")
-        {
-            notationPaths.push_back(entry.path().string());
-        }
-    }
-    for (juce::String path : notationPaths)
-    {
-        auto name = File(path).getFileNameWithoutExtension();
-       
-        addNotation(name, juce::File(path));
-    }
+
 
     auto dynamicControl = std::make_shared<MFMControl>(1);
 	dynamicControl->intensity[0] = 0.8;
@@ -178,13 +192,45 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
 	mfmControls["__dynamic__"] = dynamicControl;
 	channelToImage[1] = "__dynamic__";
 
-    networkThread.startThread();
+}
+
+void PhysicsBasedSynthAudioProcessor::loadImages()
+{
+    // load all notation images
+    std::vector<juce::String> notationPaths;
+    auto notationDir = getState("ImagesDirectory").toStdString();
+    for (const auto& entry : std::filesystem::directory_iterator(notationDir))
+    {
+        if (entry.path().extension() == ".png")
+        {
+            notationPaths.push_back(entry.path().string());
+        }
+    }
+    for (juce::String path : notationPaths)
+    {
+        auto name = File(path).getFileNameWithoutExtension();
+
+        addNotation(name, juce::File(path));
+    }
+}
+
+void PhysicsBasedSynthAudioProcessor::loadParams()
+{
+    loadMfmParamsFromFolder(getState("TableDirectory"));
+}
+
+void PhysicsBasedSynthAudioProcessor::startNetworkThread()
+{
+	if (!networkThread.isThreadRunning())
+	{
+        networkThread.startThread();
+	}
 }
 
 void PhysicsBasedSynthAudioProcessor::addNotation(juce::String name, juce::File image) {
     images[name] = ImageFileFormat::loadFrom(image);
 	channelToImage[channelToImage.size() + 2] = name; // 1 is for the dynamic control
-    mfmControls[name] = std::make_shared<MFMControl>(notationToControl(image));
+	mfmControls[name] = std::make_shared<MFMControl>(notationToControl(image, getState("ServerUrl")));
 	imagesDataVersion++;
 }
 
@@ -231,7 +277,8 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-	//print all midi messages
+
+    std::shared_ptr<MFMControl> control = mfmControls["__dynamic__"];
 	MidiBuffer::Iterator it(midiMessages);
 	MidiMessage message;
 	int sampleNumber;
@@ -241,6 +288,32 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
             const int midiNote = message.getNoteNumber();
 			currentNoteChannel[midiNote] = midiChannel;
         }
+        /*
+		// control change 11, 75-79 are used for MFM
+        if (message.isController()) {
+            const int controller = message.getControllerNumber();
+            const int value = message.getControllerValue();
+            switch (controller) {
+			case 11: // expression
+                control->intensity[0] = value / 127.0;
+                break;
+            case 75:
+                control->density[0] = value / 127.0 - 0.5;
+                break;
+            case 76:
+                control->pitch[0] = value / 127.0;
+                break;
+            case 77:
+                control->hue[0] = value / 127.0 * 140;
+                break;
+            case 78:
+                control->saturation[0] = value / 127.0;
+                break;
+            case 79:
+                control->value[0] = value / 127.0;
+                break;
+            }
+        }*/
     }
 
 
@@ -275,6 +348,16 @@ bool PhysicsBasedSynthAudioProcessor::hasEditor() const
 juce::AudioProcessorEditor* PhysicsBasedSynthAudioProcessor::createEditor()
 {
     return new PhysicsBasedSynthAudioProcessorEditor (*this);
+}
+
+void PhysicsBasedSynthAudioProcessor::setState(juce::String name, juce::String value)
+{
+    valueTree.state.getOrCreateChildWithName("stringState", nullptr).setProperty(name, value, nullptr);
+}
+
+juce::String PhysicsBasedSynthAudioProcessor::getState(juce::String name)
+{
+	return valueTree.state.getOrCreateChildWithName("stringState", nullptr).getProperty(name, "");
 }
 
 //==============================================================================
@@ -326,5 +409,7 @@ AudioProcessorValueTreeState::ParameterLayout PhysicsBasedSynthAudioProcessor::c
 	params.push_back(std::make_unique<AudioParameterFloat>("attack", "Attack", 0.0f, 2.0f, 1.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("loopStart", "Loop Start", 0.0f, 5.0f, 0.5f));
     params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 2.0f));
+
+
     return { params.begin(), params.end() };
 }

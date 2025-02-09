@@ -59,3 +59,129 @@ private:
 	int lastImagesDataVersion = 0;
 	float imgScale = 0.2;
 };
+
+/*
+* Use flexbox to layout the components
+* 
+text:
+"Set these settings and apply them before using the plugin"
+
+input boxes:
+server address and port: string
+images directory: string
+table directory: string
+
+buttons:
+apply settings
+
+*/
+
+class InputBoxWithLabel : public juce::Component
+{
+public:
+	InputBoxWithLabel(juce::String label, juce::String propertyName, juce::ValueTree& valueTree)
+		: label(label), propertyName(propertyName), valueTree(valueTree)
+	{
+		addAndMakeVisible(text);
+		addAndMakeVisible(inputBox);
+		text.setText(label, juce::dontSendNotification);
+		inputBox.setText(valueTree.getProperty(propertyName, juce::String()), juce::dontSendNotification);
+		inputBox.onTextChange = [this]() {
+			this->valueTree.setProperty(this->propertyName, inputBox.getText(), nullptr);
+			};
+	}
+	void paint(juce::Graphics& g) override
+	{
+	}
+	void resized() override
+	{
+		juce::FlexBox fb;
+		fb.flexDirection = FlexBox::Direction::column;
+		fb.items.add(FlexItem(text).withFlex(1).withMargin(5));
+		fb.items.add(FlexItem(inputBox).withFlex(1.5).withMargin(5));
+		fb.justifyContent = FlexBox::JustifyContent::flexStart;
+		fb.performLayout(getLocalBounds());
+	}
+	juce::TextEditor inputBox;
+private:
+	juce::String label;
+	juce::String propertyName;
+	juce::ValueTree& valueTree;
+	juce::Label text;
+};
+
+
+class SettingsComponent : public juce::Component
+{
+public:
+	SettingsComponent(PhysicsBasedSynthAudioProcessor& p)
+		: p(p)
+	{
+		addAndMakeVisible(serverAddress);
+		addAndMakeVisible(imagesDirectory);
+		addAndMakeVisible(tableDirectory);
+		addAndMakeVisible(applySettingsButton);
+		addAndMakeVisible(statusText);
+		applySettingsButton.onClick = [this]() {
+
+			// disable the boxes and button
+			this->serverAddress.inputBox.setEnabled(false);
+			this->imagesDirectory.inputBox.setEnabled(false);
+			this->tableDirectory.inputBox.setEnabled(false);
+			this->applySettingsButton.setEnabled(false);
+
+			this->p.setState("ServerUrl", this->serverAddress.inputBox.getText());
+			this->p.setState("ImagesDirectory", this->imagesDirectory.inputBox.getText());
+			this->p.setState("TableDirectory", this->tableDirectory.inputBox.getText());
+			auto test = this->p.getState("TableDirectory");
+			if (!this->p.getState("ImagesDirectory").isEmpty()) {
+				try {
+					this->p.loadImages();
+				}
+				catch (std::exception e) {
+					statusText.setText("Error loading images. Please check the directory.", juce::dontSendNotification);
+					return;
+				}
+			}
+			try{
+				this->p.loadParams();
+			}
+			catch (std::exception e) {
+				statusText.setText("Error loading params.", juce::dontSendNotification);
+				return;
+			}
+			try {
+				this->p.startNetworkThread();
+			}
+			catch (std::exception e) {
+				statusText.setText("Error connecting to server.", juce::dontSendNotification);
+				return;
+			}
+			statusText.setText("Done.", juce::dontSendNotification);
+		};
+		statusText.setText("Apply settings before using the synth.", juce::dontSendNotification);
+
+	}
+	void paint(juce::Graphics& g) override
+	{
+	}
+	void resized() override
+	{
+		juce::FlexBox fb;
+		fb.flexDirection = FlexBox::Direction::column;
+		fb.items.add(FlexItem(serverAddress).withFlex(1).withMargin(5));
+		fb.items.add(FlexItem(imagesDirectory).withFlex(1).withMargin(5));
+		fb.items.add(FlexItem(tableDirectory).withFlex(1).withMargin(5));
+		fb.items.add(FlexItem(applySettingsButton).withFlex(1).withMargin(5));
+		fb.items.add(FlexItem(statusText).withFlex(1).withMargin(5));
+		fb.performLayout(getLocalBounds().withHeight(400));
+	}
+private:
+	PhysicsBasedSynthAudioProcessor& p;
+	InputBoxWithLabel serverAddress = InputBoxWithLabel("ServerUrl", "ServerUrl", p.valueTree.state);
+	InputBoxWithLabel imagesDirectory = InputBoxWithLabel("ImagesDirectory", "ImagesDirectory", p.valueTree.state);
+	InputBoxWithLabel tableDirectory = InputBoxWithLabel("TableDirectory", "TableDirectory", p.valueTree.state);
+	juce::TextButton applySettingsButton = juce::TextButton("ApplySettings");
+	//status text
+	juce::Label statusText;
+};

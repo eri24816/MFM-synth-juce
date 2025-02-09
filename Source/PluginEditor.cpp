@@ -20,13 +20,15 @@ PhysicsBasedSynthAudioProcessorEditor::PhysicsBasedSynthAudioProcessorEditor (Ph
 		{"Loop Start", "loopStart"},
 		{"Loop End", "loopEnd"}
 		}),
-	imageShowcase(p)
+	imageShowcase(p),
+	settings(p)
 {
 	setSize(1000, 700);
 
 	imageShowcaseViewport.setViewedComponent(&imageShowcase, false);
 	addAndMakeVisible(mainParamComponent);
 	addAndMakeVisible(imageShowcaseViewport);
+	addAndMakeVisible(settings);
 }
 
 PhysicsBasedSynthAudioProcessorEditor::~PhysicsBasedSynthAudioProcessorEditor()
@@ -51,5 +53,6 @@ void PhysicsBasedSynthAudioProcessorEditor::resized()
 
 	fb.items.add(FlexItem(mainParamComponent).withFlex(1).withMargin(5));
 	fb.items.add(FlexItem(imageShowcaseViewport).withFlex(1).withMargin(5));
+	fb.items.add(FlexItem(settings).withFlex(1).withMargin(5));
 	fb.performLayout(area);
 }

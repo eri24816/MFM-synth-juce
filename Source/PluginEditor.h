@@ -35,6 +35,7 @@ private:
 	SliderGroup mainParamComponent;
 	ImageShowcase imageShowcase;
 	Viewport imageShowcaseViewport;
+    SettingsComponent settings;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhysicsBasedSynthAudioProcessorEditor)
 };
