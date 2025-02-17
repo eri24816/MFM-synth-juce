@@ -16,22 +16,43 @@
 
 using namespace juce;
 
+/*
+Each line of the serial message can be one of the following 3 message types :
 
-//auto response = URL("http://localhost:8000/serial").readEntireTextStream();
+-note_on :
+    -start playing a note with the given pitch
+    - format : `note_on <pitch>`
+    - example: `note_on 65`
+    - note_off:
+-stop playing a note
+- format : `note_off <pitch>`
+- example: `note_off 65`
+- control:
+-format : `control` followed by 6 integers between 0~1023, separated by a single space.The 6 numbers  represent following acoustic features respectively :
+1. intensity
+1. roughness
+1. pitch variance
+1. bow position
+1. resonance
+1. sharpness
+- example: `control 100 200 300 400 500 600`
+*/
+
 
 void NetworkThread::run()
 {
     while (!threadShouldExit())
     {
+		continue;
         auto response = URL(p->getState("ServerUrl") + "/serial").readEntireTextStream();
         // trim '"' from response
         response = response.substring(1, response.length() - 1);
         //juce::Logger::writeToLog(response);
         // skip if response is empty
-        if (!response.isEmpty()) {
-            // response is a string with format "x1 x2 x3 x4 x5 x6 x7 x8", where x1 to x8 are 0-1023
+        if (response.startsWith("control ")) {
             int values[8] = { 0 };
-            int i = 0;
+			response = response.fromFirstOccurrenceOf("control ", false, false);
+			int i = 0;
             for (auto character : response) {
                 if (character == ' ') {
                     i++;
@@ -48,8 +69,20 @@ void NetworkThread::run()
             control->hue[0] = values[3] / 1023.0 * 140;
             control->saturation[0] = values[4] / 1023.0;
             control->value[0] = values[5] / 1023.0;
-        }
-        wait(100);
+		}
+		else if (response.startsWith("note_on ")) {
+			int pitch = response.fromFirstOccurrenceOf("note_on ", false, false).getIntValue();
+			juce::Logger::writeToLog("Received: note_on " + juce::String(pitch));
+			if (pitch >= 0 && pitch < 128)
+				p->internalMidiMessages.push(MidiMessage::noteOn(1, pitch, 1.0f));
+		}
+		else if (response.startsWith("note_off ")) {
+			int pitch = response.fromFirstOccurrenceOf("note_off ", false, false).getIntValue();
+			juce::Logger::writeToLog("Received: note_off " + juce::String(pitch));
+			if (pitch >= 0 && pitch < 128)
+			    p->internalMidiMessages.push(MidiMessage::noteOff(1, pitch, 0.0f));
+		}
+		wait(80); // hope this is not too fast
     }
 }
 
@@ -277,6 +310,12 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
+	// merge internalMidiMessages and midiMessages
+	while (!internalMidiMessages.empty())
+	{
+		midiMessages.addEvent(internalMidiMessages.front(), 0);
+		internalMidiMessages.pop();
+	}
 
     std::shared_ptr<MFMControl> control = mfmControls["__dynamic__"];
 	MidiBuffer::Iterator it(midiMessages);
@@ -288,7 +327,7 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
             const int midiNote = message.getNoteNumber();
 			currentNoteChannel[midiNote] = midiChannel;
         }
-        /*
+        
 		// control change 11, 75-79 are used for MFM
         if (message.isController()) {
             const int controller = message.getControllerNumber();
@@ -313,7 +352,7 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
                 control->value[0] = value / 127.0;
                 break;
             }
-        }*/
+        }
     }
 
 

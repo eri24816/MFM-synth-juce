@@ -93,6 +93,8 @@ public:
     void setState(juce::String name, juce::String value);
 	juce::String getState(juce::String name);
 
+    std::queue<juce::MidiMessage> internalMidiMessages;
+
 private:
     juce::Synthesiser mySynth;
 
