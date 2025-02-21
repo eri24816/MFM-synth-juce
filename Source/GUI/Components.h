@@ -110,18 +110,23 @@ private:
 	juce::Label text;
 };
 
-
-class SettingsComponent : public juce::Component
+#define MFM_VERSION "7"
+class SettingsComponent : public juce::Component, juce::Timer
 {
 public:
 	SettingsComponent(PhysicsBasedSynthAudioProcessor& p)
 		: p(p)
 	{
-		addAndMakeVisible(serverAddress);
-		addAndMakeVisible(imagesDirectory);
+		startTimerHz(10);
+
+		/*addAndMakeVisible(serverAddress);
+		addAndMakeVisible(imagesDirectory);*/
 		addAndMakeVisible(tableDirectory);
 		addAndMakeVisible(applySettingsButton);
 		addAndMakeVisible(statusText);
+		addAndMakeVisible(lastMidiMessageText);
+		addAndMakeVisible(versionText);
+		versionText.setText("MFM Synth Version: " MFM_VERSION, juce::dontSendNotification);
 		applySettingsButton.onClick = [this]() {
 
 			// disable the boxes and button
@@ -169,12 +174,21 @@ public:
 	{
 		juce::FlexBox fb;
 		fb.flexDirection = FlexBox::Direction::column;
-		fb.items.add(FlexItem(serverAddress).withFlex(1).withMargin(5));
-		fb.items.add(FlexItem(imagesDirectory).withFlex(1).withMargin(5));
+		/*fb.items.add(FlexItem(serverAddress).withFlex(1).withMargin(5));
+		fb.items.add(FlexItem(imagesDirectory).withFlex(1).withMargin(5));*/
 		fb.items.add(FlexItem(tableDirectory).withFlex(1).withMargin(5));
 		fb.items.add(FlexItem(applySettingsButton).withFlex(1).withMargin(5));
-		fb.items.add(FlexItem(statusText).withFlex(1).withMargin(5));
+		fb.items.add(FlexItem(statusText).withFlex(1).withMargin(2));
+		fb.items.add(FlexItem(lastMidiMessageText).withFlex(1).withMargin(2));
+		fb.items.add(FlexItem(versionText).withFlex(1).withMargin(5));
 		fb.performLayout(getLocalBounds().withHeight(400));
+	}
+	void timerCallback() override
+	{
+		if (p.lastMidiMessage != lastMidiMessage) {
+			lastMidiMessage = p.lastMidiMessage;
+			lastMidiMessageText.setText(lastMidiMessage, juce::dontSendNotification);
+		}
 	}
 private:
 	PhysicsBasedSynthAudioProcessor& p;
@@ -184,4 +198,7 @@ private:
 	juce::TextButton applySettingsButton = juce::TextButton("ApplySettings");
 	//status text
 	juce::Label statusText;
+	juce::Label lastMidiMessageText;
+	juce::String lastMidiMessage;
+	juce::Label versionText;
 };
