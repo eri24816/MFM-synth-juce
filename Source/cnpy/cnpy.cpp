@@ -20,7 +20,7 @@ cnpy::NpyArray cnpy::read_npz(std::string path, std::string key) {
     auto stream = archive.createStreamForEntry(*entry);
     cnpy::NpyArray arr = cnpy::load_the_npy_file(*stream);
     juce::Logger::writeToLog("reading npz file:  key: " + key);
-    juce::Logger::writeToLog("shape: " + vector_to_string(arr.shape));
+    //juce::Logger::writeToLog("shape: " + vector_to_string(arr.shape));
     juce::Logger::writeToLog("data: " + vector_to_string_(arr.as_vec<float>()));
     delete stream;
     return arr;

@@ -42,7 +42,9 @@ public:
 	{
 		for (SliderWithName* slider : sliders)
 		{
-			delete slider;
+            // not deleting the slider smells like a memory leak, but
+            // deleting it causes seg fault on mac so i'm commenting it out
+			//delete slider;
 		}
 	}
 

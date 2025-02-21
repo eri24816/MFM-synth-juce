@@ -2,7 +2,8 @@
 
 <JUCERPROJECT id="guUdRR" name="MFMSynth" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="1" jucerFormatVersion="1" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
-              pluginFormats="buildVST3" pluginName="MFMSynth" pluginDesc="MFM Synthesizer">
+              pluginFormats="buildVST3" pluginName="MFMSynth" pluginDesc="MFM Synthesizer"
+              cppLanguageStandard="17">
   <MAINGROUP id="Kz5Htd" name="MFMSynth">
     <GROUP id="{9A49C777-E63D-FDF6-E7BE-B1031F3C0961}" name="Source">
       <GROUP id="{71B805D9-CB25-5D4A-8836-5CBCA643F001}" name="cnpy">
@@ -67,5 +68,26 @@
         <MODULEPATH id="juce_dsp" path="C:\JUCE\modules"/>
       </MODULEPATHS>
     </VS2022>
+    <XCODE_MAC targetFolder="Builds/MacOSX">
+      <CONFIGURATIONS>
+        <CONFIGURATION isDebug="1" name="Debug" macOSDeploymentTarget="10.15" osxCompatibility="10.15 SDK"/>
+        <CONFIGURATION isDebug="0" name="Release"/>
+      </CONFIGURATIONS>
+      <MODULEPATHS>
+        <MODULEPATH id="juce_audio_basics" path="../../juce"/>
+        <MODULEPATH id="juce_audio_devices" path="../../juce"/>
+        <MODULEPATH id="juce_audio_formats" path="../../juce"/>
+        <MODULEPATH id="juce_audio_plugin_client" path="../../juce"/>
+        <MODULEPATH id="juce_audio_processors" path="../../juce"/>
+        <MODULEPATH id="juce_audio_utils" path="../../juce"/>
+        <MODULEPATH id="juce_core" path="../../juce"/>
+        <MODULEPATH id="juce_data_structures" path="../../juce"/>
+        <MODULEPATH id="juce_dsp" path="../../juce"/>
+        <MODULEPATH id="juce_events" path="../../juce"/>
+        <MODULEPATH id="juce_graphics" path="../../juce"/>
+        <MODULEPATH id="juce_gui_basics" path="../../juce"/>
+        <MODULEPATH id="juce_gui_extra" path="../../juce"/>
+      </MODULEPATHS>
+    </XCODE_MAC>
   </EXPORTFORMATS>
 </JUCERPROJECT>

@@ -121,7 +121,8 @@ namespace cnpy {
             //file exists. we need to append to it. read the header, modify the array size
             size_t word_size;
             bool fortran_order;
-            parse_npy_header(fp,word_size,true_data_shape,fortran_order);
+            // mac can't compile below line
+            //parse_npy_header(fp,word_size,true_data_shape,fortran_order);
             assert(!fortran_order);
 
             if(word_size != sizeof(T)) {
@@ -194,9 +195,9 @@ namespace cnpy {
         size_t nbytes = nels*sizeof(T) + npy_header.size();
 
         //get the CRC of the data to be added
-        uint32_t crc = crc32(0L,(uint8_t*)&npy_header[0],npy_header.size());
-        crc = crc32(crc,(uint8_t*)data,nels*sizeof(T));
-
+//        uint32_t crc = crc32(0L,(uint8_t*)&npy_header[0],npy_header.size());
+//        crc = crc32(crc,(uint8_t*)data,nels*sizeof(T));
+        uint32_t crc=0; // mac computer cant compile above lines
         //build the local header
         std::vector<char> local_header;
         local_header += "PK"; //first part of sig
