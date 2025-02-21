@@ -301,6 +301,13 @@ bool PhysicsBasedSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout&
 }
 #endif
 
+void setParam(AudioProcessorValueTreeState& valueTree, String paramId, float value)
+{
+	valueTree.getParameter(paramId)->beginChangeGesture();
+	valueTree.getParameter(paramId)->setValueNotifyingHost(value);
+	valueTree.getParameter(paramId)->endChangeGesture();
+}
+
 void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -322,6 +329,12 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
 	MidiMessage message;
 	int sampleNumber;
     while (it.getNextEvent(message, sampleNumber)) {
+
+		// update lastMidiMessage
+
+		lastMidiMessage = message.getDescription();
+
+
 		if (message.isNoteOn()) {
             const int midiChannel = message.getChannel();
             const int midiNote = message.getNoteNumber();
@@ -332,24 +345,37 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
         if (message.isController()) {
             const int controller = message.getControllerNumber();
             const int value = message.getControllerValue();
+
             switch (controller) {
 			case 11: // expression
                 control->intensity[0] = value / 127.0;
+				
+				setParam(valueTree, "intensity", value / 127.0);
                 break;
             case 75:
                 control->density[0] = value / 127.0 - 0.5;
+                
+				setParam(valueTree, "roughness", value / 127.0 - 0.5);
                 break;
             case 76:
-                control->pitch[0] = value / 127.0;
+                control->pitch[0] = (value / 127.0 - 0.5) * 8;
+				
+				setParam(valueTree, "pitchVariance", (value / 127.0 - 0.5) * 8);
                 break;
             case 77:
                 control->hue[0] = value / 127.0 * 140;
+                
+				setParam(valueTree, "bowPosition", value / 127.0 * 140);
                 break;
             case 78:
                 control->saturation[0] = value / 127.0;
+                
+				setParam(valueTree, "resonance", value / 127.0);
                 break;
             case 79:
                 control->value[0] = value / 127.0;
+				
+				setParam(valueTree, "sharpness", value / 127.0);
                 break;
             }
         }
@@ -447,7 +473,15 @@ AudioProcessorValueTreeState::ParameterLayout PhysicsBasedSynthAudioProcessor::c
 	params.push_back(std::make_unique<AudioParameterFloat>("wetDry", "Wet Dry", 0.0f, 1.0f, 0.5f));
 	params.push_back(std::make_unique<AudioParameterFloat>("attack", "Attack", 0.0f, 2.0f, 1.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("loopStart", "Loop Start", 0.0f, 5.0f, 0.5f));
-    params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 2.0f));
+    params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 1.75f));
+
+	// feature parameters
+	params.push_back(std::make_unique<AudioParameterFloat>("intensity", "Intensity", 0.0f, 1.0f, 0.5f));
+	params.push_back(std::make_unique<AudioParameterFloat>("roughness", "Roughness", 0.0f, 1.0f, 0.5f));
+	params.push_back(std::make_unique<AudioParameterFloat>("pitchVariance", "Pitch Variance", -8.0f, 8.0f, 0.0f));
+	params.push_back(std::make_unique<AudioParameterFloat>("bowPosition", "Bow Position", 0.0f, 140.0f, 70.0f));
+	params.push_back(std::make_unique<AudioParameterFloat>("resonance", "Resonance", 0.0f, 1.0f, 0.5f));
+	params.push_back(std::make_unique<AudioParameterFloat>("sharpness", "Sharpness", 0.0f, 1.0f, 0.5f));
 
 
     return { params.begin(), params.end() };

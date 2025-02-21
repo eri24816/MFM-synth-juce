@@ -95,6 +95,8 @@ public:
 
     std::queue<juce::MidiMessage> internalMidiMessages;
 
+	juce::String lastMidiMessage;
+
 private:
     juce::Synthesiser mySynth;
 

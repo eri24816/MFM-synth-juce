@@ -146,7 +146,8 @@ public:
 			return;
 		}*/
 
-		auto currentChannel = currentNoteChannel[midiNoteNumber];
+		//auto currentChannel = currentNoteChannel[midiNoteNumber];
+		auto currentChannel = 1; // images are disabled for now
 		if (channelToImage->find(currentChannel) == channelToImage->end()) {
 			state = VoiceState::IDLE;
 			return;
@@ -228,20 +229,28 @@ public:
 		
 		float timbreGain = 1.4;
 
-		float cIdx = time * 50.0f; // 50 Hz control rate
-		float intensity = intensityS->sample(cIdx, 0);
-		float pitch = pitchS->sample(cIdx, 0);
-		float density = densityS->sample(cIdx, 0);
-		float hue = hueS->sample(cIdx, 0);
-		float saturation = saturationS->sample(cIdx, 0);
-		float value = valueS->sample(cIdx, 0);
+		// for now, just use the parameter values directly
+		//float cIdx = time * 50.0f; // 50 Hz control rate
+		//float intensity = intensityS->sample(cIdx, 0);
+		//float roughness = densityS->sample(cIdx, 0);
+		//float pitchVar = pitchS->sample(cIdx, 0);
+		//float bowPos = hueS->sample(cIdx, 0);
+		//float resonance = saturationS->sample(cIdx, 0);
+		//float sharpness = valueS->sample(cIdx, 0);
+
+		float intensity = getParam("intensity");
+		float roughness = getParam("roughness");
+		float pitchVar = getParam("pitchVariance");
+		float bowPos = getParam("bowPosition");
+		float resonance = getParam("resonance");
+		float sharpness = getParam("sharpness");
 
 		// translate controls to control vector
-		hue = std::fmin(hue, 135);
-		hue = std::max(hue, 0.0f);
-		float bowPos = 1 / (hue / 135 * 5 + 2);
+		bowPos = std::fmin(bowPos, 135);
+		bowPos = std::max(bowPos, 0.0f);
+		bowPos = 1 / (bowPos / 135 * 5 + 2);
 
-		const float frequency = baseFrequency * exp2f(pitch / 12); // pitch in semitones
+		const float frequency = baseFrequency * exp2f(pitchVar / 12); // pitch in semitones
 
 		float magControl[100] = { 1 };
 		float alphaControl[100] = { 1 };
@@ -256,12 +265,12 @@ public:
 
 			// apply saturation
 			if (overtoneFreq <= 1000) {
-				magControl[i] *= pow(10, (-4 + saturation * 6) / 20);
+				magControl[i] *= pow(10, (-4 + resonance * 6) / 20);
 			}
 
 			// apply value
 			if (overtoneFreq >= 5000) {
-				magControl[i] *= pow(10, (-4 + value * 6) / 20);
+				magControl[i] *= pow(10, (-4 + sharpness * 6) / 20);
 			}
 
 			alphaControl[i] = 1;

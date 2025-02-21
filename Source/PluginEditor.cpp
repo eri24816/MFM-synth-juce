@@ -15,19 +15,25 @@ PhysicsBasedSynthAudioProcessorEditor::PhysicsBasedSynthAudioProcessorEditor (Ph
 	: AudioProcessorEditor(&p), audioProcessor(p), 
 	mainParamComponent(p, "Main", {
 		{"Gain", "gain"},
-		{"Wet Dry", "wetDry"},
+		//{"Wet Dry", "wetDry"},
 		{"Attack", "attack"},
-		{"Loop Start", "loopStart"},
-		{"Loop End", "loopEnd"}
+		/*{"Loop Start", "loopStart"},
+		{"Loop End", "loopEnd"}*/
 		}),
-	imageShowcase(p),
+	featureParamComponent(p, "Feature", {
+		{"Intensity", "intensity"},
+		{"Roughness", "roughness"},
+		{"Pitch Variance", "pitchVariance"},
+		{"Bow Position", "bowPosition"},
+		{"Resonance", "resonance"},
+		{"Sharpness", "sharpness"}
+		}),
 	settings(p)
 {
 	setSize(1000, 700);
 
-	imageShowcaseViewport.setViewedComponent(&imageShowcase, false);
 	addAndMakeVisible(mainParamComponent);
-	addAndMakeVisible(imageShowcaseViewport);
+	addAndMakeVisible(featureParamComponent);
 	addAndMakeVisible(settings);
 }
 
@@ -52,7 +58,7 @@ void PhysicsBasedSynthAudioProcessorEditor::resized()
 	fb.flexDirection = FlexBox::Direction::row;
 
 	fb.items.add(FlexItem(mainParamComponent).withFlex(1).withMargin(5));
-	fb.items.add(FlexItem(imageShowcaseViewport).withFlex(1).withMargin(5));
+	fb.items.add(FlexItem(featureParamComponent).withFlex(1).withMargin(5));
 	fb.items.add(FlexItem(settings).withFlex(1).withMargin(5));
 	fb.performLayout(area);
 }

@@ -33,8 +33,7 @@ private:
     // access the processor object that created it.
     PhysicsBasedSynthAudioProcessor& audioProcessor;
 	SliderGroup mainParamComponent;
-	ImageShowcase imageShowcase;
-	Viewport imageShowcaseViewport;
+    SliderGroup featureParamComponent;
     SettingsComponent settings;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhysicsBasedSynthAudioProcessorEditor)
