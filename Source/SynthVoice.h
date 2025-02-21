@@ -215,18 +215,8 @@ public:
 			return;
 		}
 
-		// precompute some constants outside the sample loop
-        float recip_two_pi = 1.0f / (2 * float_Pi);
-        float twoPi = 2 * float_Pi;
-        const float dt = 1.0 / getSampleRate();
-        const float attackFactor = 1.0f / param->envelope[(int)(((float)param->attackLen) / param->sampleRate * param->param_sr) - 1];
-
-        const float gain = getParam("gain");
-        
-        float pIdx = time * param->param_sr;
-		
 		// control
-		
+
 		float timbreGain = 1.4;
 
 		// for now, just use the parameter values directly
@@ -244,6 +234,18 @@ public:
 		float bowPos = getParam("bowPosition");
 		float resonance = getParam("resonance");
 		float sharpness = getParam("sharpness");
+
+		// precompute some constants outside the sample loop
+        float recip_two_pi = 1.0f / (2 * float_Pi);
+        float twoPi = 2 * float_Pi;
+        const float dt = 1.0 / getSampleRate();
+        const float attackFactor = intensity / param->envelope[(int)(((float)param->attackLen) / param->sampleRate * param->param_sr) - 1];
+
+        const float gain = getParam("gain");
+        
+        float pIdx = time * param->param_sr;
+		
+
 
 		// translate controls to control vector
 		bowPos = std::fmin(bowPos, 135);
