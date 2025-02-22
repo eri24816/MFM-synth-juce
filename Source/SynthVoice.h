@@ -16,6 +16,7 @@
 #include <vector>
 #include "MFMParam.h"
 #include "MFMControl.h"
+#include <vector>
 
 
 
@@ -30,9 +31,9 @@ namespace {
         return a * (1 - interp) + b * interp;
     }
 
-    class LoopSampler {
+    class LoopSamplerOld {
 	public:
-		LoopSampler(float* array, float loopStart, float loopEnd, float overlap = 0) :
+		LoopSamplerOld(float* array, float loopStart, float loopEnd, float overlap = 0) :
             array(array), 
             loopStart(loopStart), 
             loopEnd(loopEnd),
@@ -56,6 +57,78 @@ namespace {
 	private:
 		float* array;
 		float loopStart, loopEnd, loopLength, overlap;
+	};
+
+	class LoopSampler {
+	public:
+		LoopSampler(float* array, float loopStartRaw, float loopEndRaw, float sr, float overlapRaw = 0)
+		{
+			this->array = array;
+			this->loopStart = loopStartRaw * sr;
+			this->loopEnd = loopEndRaw * sr;
+			this->overlap = overlapRaw * sr;
+			this->overlapRaw = overlapRaw;
+			this->loopEndRaw = loopEndRaw;
+			this->loopStartRaw = loopStartRaw;
+			this->loopLengthRaw = loopEndRaw - loopStartRaw;
+			loopLength = loopEnd - loopStart;
+			this->loopSamples = std::vector<float>(loopLength);
+
+			this->recip_sr = 1.0f / sr;
+		}
+		float sample(int i) {
+			if (i < loopStart + overlap) {
+				float target_pos = (float(i)) * this->recip_sr;
+				float result = sampleFromArray(array, target_pos);
+				return result;
+			}
+			else {
+				if (i >= this->loopEnd + overlap) {
+					float result = loopSamples[(i - loopStart) % loopLength];
+					return result;
+				}
+				float targetPos = float(i) * recip_sr;
+				targetPos = fmod(targetPos - loopStartRaw, loopLengthRaw);
+				if (targetPos > overlapRaw) {
+
+					float result = sampleFromArray(array, targetPos + loopStartRaw);
+					loopSamples[i - loopStart] = result;
+					return result;
+				}
+				const float lerp = targetPos / overlapRaw;
+				float result = sampleFromArray(array, targetPos + loopStartRaw) * lerp
+					+ sampleFromArray(array, targetPos + loopEndRaw) * (1 - lerp);
+
+				i = (i - loopStart) % loopLength;
+				loopSamples[i] = result;
+				return result;
+			}
+		}
+
+	private:
+		float* array;
+		std::vector<float> loopSamples;
+		int loopStart, loopEnd, loopLength, overlap;
+		float loopEndRaw, overlapRaw, loopStartRaw, loopLengthRaw;
+		float recip_sr;
+	};
+
+	class MultiChannelLoopSampler {
+	public:
+		MultiChannelLoopSampler(float* array, int channelSize, int numChannels, float sr, float loopStart, float loopEnd, float overlap = 0)
+		{
+			this->numChannels = numChannels;
+			for (int i = 0; i < numChannels; i++) {
+				samplers.push_back(LoopSampler(array + (channelSize*i), loopStart, loopEnd, sr, overlap));
+			}
+		}
+		float sample(int channel, int index) {
+			return samplers[channel].sample(index);
+		}
+
+	private:
+		std::vector<LoopSampler> samplers;
+		int numChannels;
 	};
 
 	class TailSampler {
@@ -132,12 +205,16 @@ public:
         // select param
 		param = (*mfmParams)[midiNoteNumber];
 
+		frameIdx = 0;
+
 		// initialize loop samplers
 		const float loopStart = getParam("loopStart") * param->param_sr;
 		const float loopEnd = std::fmin(getParam("loopEnd") * param->param_sr, param->num_samples);
 		const float loopOverlap = 0.5 * param->param_sr;
-		magGlobal = std::make_unique<LoopSampler>(param->magGlobal.get(), loopStart, loopEnd, loopOverlap);
-		alphaGlobal = std::make_unique<LoopSampler>(param->alphaGlobal.get(), loopStart, loopEnd, loopOverlap);
+
+		const float audioParamSampleRatio =  ((float)getSampleRate())/ ((float) param->param_sr);
+		magGlobal = std::make_unique<MultiChannelLoopSampler>(param->magGlobal.get(), param->num_samples, param->num_partials, audioParamSampleRatio, loopStart, loopEnd, loopOverlap);
+		alphaGlobal = std::make_unique<MultiChannelLoopSampler>(param->alphaGlobal.get(), param->num_samples, param->num_partials, audioParamSampleRatio, loopStart, loopEnd, loopOverlap);
 
 		// select control
 		/*juce::String controlToUse = (*channelToImage)[currentNoteChannel[midiNoteNumber]];
@@ -215,6 +292,11 @@ public:
 			return;
 		}
 
+		if (frameIdx > INT_MAX - 5000) {
+			// reset frameIdx to avoid overflow
+			frameIdx = 0;
+		}
+
 		// control
 
 		float timbreGain = 1.4;
@@ -239,7 +321,7 @@ public:
         float recip_two_pi = 1.0f / (2 * float_Pi);
         float twoPi = 2 * float_Pi;
         const float dt = 1.0 / getSampleRate();
-        const float attackFactor = intensity / param->envelope[(int)(((float)param->attackLen) / param->sampleRate * param->param_sr) - 1];
+        const float attackFactor = 1.0f / param->envelope[(int)(((float)param->attackLen) / param->sampleRate * param->param_sr) - 1];
 
         const float gain = getParam("gain");
         
@@ -287,14 +369,14 @@ public:
 
             for (int i = 0; i < param->num_partials; i++) {
 				int n = i + 1;
-				const float mag = magGlobal->sample(pIdx, i * param->num_samples) * magControl[i];
+				const float mag = magGlobal->sample(i, frameIdx) * magControl[i];
 				ft[i] += frequency * n * dt;
 
 				// limit 2 pi f t in -pi to pi
 				if (ft[i] > 0.5) {
 					ft[i] -= 1;
 				}
-				float alpha = alphaGlobal->sample(pIdx, i * param->num_samples) * alphaControl[i];
+				float alpha = alphaGlobal->sample(i, frameIdx) * alphaControl[i];
                 float stuff_in_sin = 2 * float_Pi * ft[i] + alpha;
 				stuff_in_sin = stuff_in_sin - twoPi * juce::roundToInt(stuff_in_sin * recip_two_pi);
 				y += mag * juce::dsp::FastMathApproximations::sin(stuff_in_sin);
@@ -316,10 +398,10 @@ public:
 					// cosine crossfade
 					//float lerp1 = sinf(lerp * float_Pi * 0.5);
 					//float lerp2 = sinf((1 - lerp) * float_Pi * 0.5);
-					y = param->attackWave[attackU]*getParam("attack")*attackFactor * lerp2 + y * lerp1;
+					y = param->attackWave[attackU]*getParam("attack")*attackFactor * intensity * lerp2 + y * lerp1;
                 }
                 else {
-                    y = param->attackWave[attackU] * getParam("attack") * attackFactor;
+                    y = param->attackWave[attackU] * getParam("attack") * attackFactor * intensity;
                 }
             }
 
@@ -329,7 +411,7 @@ public:
 				outputBuffer.addSample(channel, startSample, y * gain * 0.1);
             }
             ++startSample;
-
+			++frameIdx;
         }
     }
 
@@ -349,8 +431,8 @@ private:
 
 	std::map<int, std::shared_ptr<MFMParam>>* mfmParams = nullptr;
     std::shared_ptr<MFMParam> param;
-	std::unique_ptr<LoopSampler> magGlobal;
-	std::unique_ptr<LoopSampler> alphaGlobal;
+	std::unique_ptr<MultiChannelLoopSampler> magGlobal;
+	std::unique_ptr<MultiChannelLoopSampler> alphaGlobal;
 
 	std::map<juce::String, std::shared_ptr<MFMControl>>* mfmControls = nullptr;
 	std::shared_ptr<MFMControl> control;
@@ -360,9 +442,10 @@ private:
 	std::unique_ptr<TailSampler> intensityS, pitchS, densityS, hueS, saturationS, valueS;
 
 	int* currentNoteChannel;
+	int frameIdx = 0;
 
 	float getParam(String paramId)
 	{
-		return *valueTree->getRawParameterValue(paramId);
+		return valueTree->getParameterAsValue(paramId).getValue();
 	}
 };

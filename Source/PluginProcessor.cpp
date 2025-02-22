@@ -99,8 +99,7 @@ PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
                        ) 
 #endif
 
-    ,valueTree(*this, nullptr, "Parameters", createParameters()),
-	networkThread(&mfmControls, this)
+    ,valueTree(*this, nullptr, "Parameters", createParameters())
 {
     mySynth.clearVoices();
 
@@ -116,10 +115,6 @@ PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
     mySynth.addSound(new SynthSound());
 }
 
-PhysicsBasedSynthAudioProcessor::~PhysicsBasedSynthAudioProcessor()
-{
-	networkThread.stopThread(1000);
-}
 
 //==============================================================================
 const juce::String PhysicsBasedSynthAudioProcessor::getName() const
@@ -254,10 +249,6 @@ void PhysicsBasedSynthAudioProcessor::loadParams()
 
 void PhysicsBasedSynthAudioProcessor::startNetworkThread()
 {
-	if (!networkThread.isThreadRunning())
-	{
-        networkThread.startThread();
-	}
 }
 
 void PhysicsBasedSynthAudioProcessor::addNotation(juce::String name, juce::File image) {
@@ -355,17 +346,16 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
             case 75:
                 control->density[0] = value / 127.0 - 0.5;
                 
-				setParam(valueTree, "roughness", value / 127.0 - 0.5);
+				setParam(valueTree, "roughness", value / 127.0);
                 break;
             case 76:
                 control->pitch[0] = (value / 127.0 - 0.5) * 8;
-				
-				setParam(valueTree, "pitchVariance", (value / 127.0 - 0.5) * 8);
+				setParam(valueTree, "pitchVariance", value / 127.0);
                 break;
             case 77:
                 control->hue[0] = value / 127.0 * 140;
                 
-				setParam(valueTree, "bowPosition", value / 127.0 * 140);
+				setParam(valueTree, "bowPosition", value / 127.0);
                 break;
             case 78:
                 control->saturation[0] = value / 127.0;

@@ -110,7 +110,7 @@ private:
 	juce::Label text;
 };
 
-#define MFM_VERSION "7"
+#define MFM_VERSION "8"
 class SettingsComponent : public juce::Component, juce::Timer
 {
 public:

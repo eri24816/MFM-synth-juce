@@ -38,7 +38,6 @@ class PhysicsBasedSynthAudioProcessor  : public juce::AudioProcessor
 public: 
     //==============================================================================
     PhysicsBasedSynthAudioProcessor();
-    ~PhysicsBasedSynthAudioProcessor() override;
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -112,7 +111,6 @@ private:
 
 	void loadMfmParamsFromFolder(juce::String path);
 
-	NetworkThread networkThread;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PhysicsBasedSynthAudioProcessor)

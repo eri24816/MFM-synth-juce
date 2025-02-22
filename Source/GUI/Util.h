@@ -18,10 +18,6 @@
 using namespace juce;
 
 class SliderWithName : public Component {
-private:
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
-
-
 public:
     Slider slider;
     Label nameLabel;
@@ -58,4 +54,6 @@ public:
 
 private:
     PhysicsBasedSynthAudioProcessor& audioProcessor;
+
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
 };
