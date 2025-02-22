@@ -310,13 +310,12 @@ public:
 		//float resonance = saturationS->sample(cIdx, 0);
 		//float sharpness = valueS->sample(cIdx, 0);
 
-		float intensity = getParam("intensity");
-		float roughness = getParam("roughness");
-		float pitchVar = getParam("pitchVariance");
-		float bowPos = getParam("bowPosition");
-		float resonance = getParam("resonance");
-		float sharpness = getParam("sharpness");
-
+		float intensity = getParam("intensity", 0.02);
+		float roughness = getParam("roughness", 0.02);
+		float pitchVar = getParam("pitchVariance", 0.02);
+		float bowPos = getParam("bowPosition", 0.02);
+		float resonance = getParam("resonance", 0.02);
+		float sharpness = getParam("sharpness", 0.02);
 		// precompute some constants outside the sample loop
         float recip_two_pi = 1.0f / (2 * float_Pi);
         float twoPi = 2 * float_Pi;
@@ -398,7 +397,7 @@ public:
 					// cosine crossfade
 					//float lerp1 = sinf(lerp * float_Pi * 0.5);
 					//float lerp2 = sinf((1 - lerp) * float_Pi * 0.5);
-					y = param->attackWave[attackU]*getParam("attack")*attackFactor * intensity * lerp2 + y * lerp1;
+					y = param->attackWave[attackU]*getParam("attack") * attackFactor * intensity * lerp2 + y * lerp1;
                 }
                 else {
                     y = param->attackWave[attackU] * getParam("attack") * attackFactor * intensity;
@@ -444,8 +443,32 @@ private:
 	int* currentNoteChannel;
 	int frameIdx = 0;
 
-	float getParam(String paramId)
-	{
-		return valueTree->getParameterAsValue(paramId).getValue();
+	float getParam(String paramId, float smooth_half_life = 0.0f) {
+		if (lastParamValues.find(paramId) == lastParamValues.end()) {
+			lastGetParamValueTime[paramId] = time;
+			lastParamValues[paramId] = valueTree->getParameterAsValue(paramId).getValue();
+		}
+		float value = valueTree->getParameterAsValue(paramId).getValue();
+		float lastValue = lastParamValues[paramId];
+		float time = this->time;
+		float lastTime = lastGetParamValueTime[paramId];
+		float dt = time - lastTime;
+		float smooth;
+		if (dt < 0 || dt > 0.5) {
+			smooth = 0;
+		}
+		else if (smooth_half_life < 0.01f) {
+			smooth = 0;
+		}
+		else {
+			smooth = pow(0.5, dt / smooth_half_life); // half life in seconds
+		}
+
+		lastParamValues[paramId] = value * (1 - smooth) + lastValue * smooth;
+		lastGetParamValueTime[paramId] = time;
+		return lastParamValues[paramId];
 	}
+
+	std::map<String, float> lastParamValues;
+	std::map<String, float> lastGetParamValueTime;
 };

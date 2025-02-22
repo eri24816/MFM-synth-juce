@@ -16,75 +16,6 @@
 
 using namespace juce;
 
-/*
-Each line of the serial message can be one of the following 3 message types :
-
--note_on :
-    -start playing a note with the given pitch
-    - format : `note_on <pitch>`
-    - example: `note_on 65`
-    - note_off:
--stop playing a note
-- format : `note_off <pitch>`
-- example: `note_off 65`
-- control:
--format : `control` followed by 6 integers between 0~1023, separated by a single space.The 6 numbers  represent following acoustic features respectively :
-1. intensity
-1. roughness
-1. pitch variance
-1. bow position
-1. resonance
-1. sharpness
-- example: `control 100 200 300 400 500 600`
-*/
-
-
-void NetworkThread::run()
-{
-    while (!threadShouldExit())
-    {
-		continue;
-        auto response = URL(p->getState("ServerUrl") + "/serial").readEntireTextStream();
-        // trim '"' from response
-        response = response.substring(1, response.length() - 1);
-        //juce::Logger::writeToLog(response);
-        // skip if response is empty
-        if (response.startsWith("control ")) {
-            int values[8] = { 0 };
-			response = response.fromFirstOccurrenceOf("control ", false, false);
-			int i = 0;
-            for (auto character : response) {
-                if (character == ' ') {
-                    i++;
-                }
-                else {
-                    values[i] = values[i] * 10 + (character - '0');
-                }
-            }
-            juce::Logger::writeToLog("Received: " + juce::String(values[0]) + " " + juce::String(values[1]) + " " + juce::String(values[2]) + " " + juce::String(values[3]) + " " + juce::String(values[4]) + " " + juce::String(values[5]) + " " + juce::String(values[6]) + " " + juce::String(values[7]));
-            auto control = (*mfmControls)["__dynamic__"];
-            control->intensity[0] = values[0] / 1023.0;
-            control->density[0] = values[1] / 1023.0;
-            control->pitch[0] = (values[2] / 1023.0 - 0.5) * 5;
-            control->hue[0] = values[3] / 1023.0 * 140;
-            control->saturation[0] = values[4] / 1023.0;
-            control->value[0] = values[5] / 1023.0;
-		}
-		else if (response.startsWith("note_on ")) {
-			int pitch = response.fromFirstOccurrenceOf("note_on ", false, false).getIntValue();
-			juce::Logger::writeToLog("Received: note_on " + juce::String(pitch));
-			if (pitch >= 0 && pitch < 128)
-				p->internalMidiMessages.push(MidiMessage::noteOn(1, pitch, 1.0f));
-		}
-		else if (response.startsWith("note_off ")) {
-			int pitch = response.fromFirstOccurrenceOf("note_off ", false, false).getIntValue();
-			juce::Logger::writeToLog("Received: note_off " + juce::String(pitch));
-			if (pitch >= 0 && pitch < 128)
-			    p->internalMidiMessages.push(MidiMessage::noteOff(1, pitch, 0.0f));
-		}
-		wait(80); // hope this is not too fast
-    }
-}
 
 //==============================================================================
 PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
@@ -349,8 +280,8 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
 				setParam(valueTree, "roughness", value / 127.0);
                 break;
             case 76:
-                control->pitch[0] = (value / 127.0 - 0.5) * 8;
-				setParam(valueTree, "pitchVariance", value / 127.0);
+                control->pitch[0] = (value / 128.0 - 0.5) * 8;
+				setParam(valueTree, "pitchVariance", value / 128.0);
                 break;
             case 77:
                 control->hue[0] = value / 127.0 * 140;
