@@ -13,6 +13,7 @@
 #include <JuceHeader.h>
 #include "../PluginProcessor.h"
 
+#define MFM_VERSION "9"
 /*
 display a list of images with their names at their top-left corner
 image1 name1
@@ -110,7 +111,6 @@ private:
 	juce::Label text;
 };
 
-#define MFM_VERSION "7"
 class SettingsComponent : public juce::Component, juce::Timer
 {
 public:
@@ -127,17 +127,17 @@ public:
 		addAndMakeVisible(lastMidiMessageText);
 		addAndMakeVisible(versionText);
 		versionText.setText("MFM Synth Version: " MFM_VERSION, juce::dontSendNotification);
-		applySettingsButton.onClick = [this]() {
+		auto applySettingsCallback = [this]() {
 
-			// disable the boxes and button
-			this->serverAddress.inputBox.setEnabled(false);
-			this->imagesDirectory.inputBox.setEnabled(false);
-			this->tableDirectory.inputBox.setEnabled(false);
-			this->applySettingsButton.setEnabled(false);
+			//// disable the boxes and button
+			//this->serverAddress.inputBox.setEnabled(false);
+			//this->imagesDirectory.inputBox.setEnabled(false);
+			//this->tableDirectory.inputBox.setEnabled(false);
+			//this->applySettingsButton.setEnabled(false);
 
 			this->p.setState("ServerUrl", this->serverAddress.inputBox.getText());
 			this->p.setState("ImagesDirectory", this->imagesDirectory.inputBox.getText());
-			this->p.setState("TableDirectory", this->tableDirectory.inputBox.getText());
+			//this->p.setState("TableDirectory", this->tableDirectory.inputBox.getText());
 			auto test = this->p.getState("TableDirectory");
 			if (!this->p.getState("ImagesDirectory").isEmpty()) {
 				try {
@@ -152,7 +152,7 @@ public:
 				this->p.loadParams();
 			}
 			catch (std::exception e) {
-				statusText.setText("Error loading params.", juce::dontSendNotification);
+				statusText.setText("Error loading params from" + this->p.getState("TableDirectory"), juce::dontSendNotification);
 				return;
 			}
 			try {
@@ -166,7 +166,9 @@ public:
 		};
 		statusText.setText("Apply settings before using the synth.", juce::dontSendNotification);
 
+		applySettingsButton.onClick = applySettingsCallback;
 	}
+
 	void paint(juce::Graphics& g) override
 	{
 	}

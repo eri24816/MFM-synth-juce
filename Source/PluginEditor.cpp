@@ -19,6 +19,7 @@ PhysicsBasedSynthAudioProcessorEditor::PhysicsBasedSynthAudioProcessorEditor (Ph
 		{"Attack", "attack"},
 		/*{"Loop Start", "loopStart"},
 		{"Loop End", "loopEnd"}*/
+		{"Input Channel", "inputChannel"}
 		}),
 	featureParamComponent(p, "Feature", {
 		{"Intensity", "intensity"},

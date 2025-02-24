@@ -16,75 +16,6 @@
 
 using namespace juce;
 
-/*
-Each line of the serial message can be one of the following 3 message types :
-
--note_on :
-    -start playing a note with the given pitch
-    - format : `note_on <pitch>`
-    - example: `note_on 65`
-    - note_off:
--stop playing a note
-- format : `note_off <pitch>`
-- example: `note_off 65`
-- control:
--format : `control` followed by 6 integers between 0~1023, separated by a single space.The 6 numbers  represent following acoustic features respectively :
-1. intensity
-1. roughness
-1. pitch variance
-1. bow position
-1. resonance
-1. sharpness
-- example: `control 100 200 300 400 500 600`
-*/
-
-
-void NetworkThread::run()
-{
-    while (!threadShouldExit())
-    {
-		continue;
-        auto response = URL(p->getState("ServerUrl") + "/serial").readEntireTextStream();
-        // trim '"' from response
-        response = response.substring(1, response.length() - 1);
-        //juce::Logger::writeToLog(response);
-        // skip if response is empty
-        if (response.startsWith("control ")) {
-            int values[8] = { 0 };
-			response = response.fromFirstOccurrenceOf("control ", false, false);
-			int i = 0;
-            for (auto character : response) {
-                if (character == ' ') {
-                    i++;
-                }
-                else {
-                    values[i] = values[i] * 10 + (character - '0');
-                }
-            }
-            juce::Logger::writeToLog("Received: " + juce::String(values[0]) + " " + juce::String(values[1]) + " " + juce::String(values[2]) + " " + juce::String(values[3]) + " " + juce::String(values[4]) + " " + juce::String(values[5]) + " " + juce::String(values[6]) + " " + juce::String(values[7]));
-            auto control = (*mfmControls)["__dynamic__"];
-            control->intensity[0] = values[0] / 1023.0;
-            control->density[0] = values[1] / 1023.0;
-            control->pitch[0] = (values[2] / 1023.0 - 0.5) * 5;
-            control->hue[0] = values[3] / 1023.0 * 140;
-            control->saturation[0] = values[4] / 1023.0;
-            control->value[0] = values[5] / 1023.0;
-		}
-		else if (response.startsWith("note_on ")) {
-			int pitch = response.fromFirstOccurrenceOf("note_on ", false, false).getIntValue();
-			juce::Logger::writeToLog("Received: note_on " + juce::String(pitch));
-			if (pitch >= 0 && pitch < 128)
-				p->internalMidiMessages.push(MidiMessage::noteOn(1, pitch, 1.0f));
-		}
-		else if (response.startsWith("note_off ")) {
-			int pitch = response.fromFirstOccurrenceOf("note_off ", false, false).getIntValue();
-			juce::Logger::writeToLog("Received: note_off " + juce::String(pitch));
-			if (pitch >= 0 && pitch < 128)
-			    p->internalMidiMessages.push(MidiMessage::noteOff(1, pitch, 0.0f));
-		}
-		wait(80); // hope this is not too fast
-    }
-}
 
 //==============================================================================
 PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
@@ -99,8 +30,7 @@ PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
                        ) 
 #endif
 
-    ,valueTree(*this, nullptr, "Parameters", createParameters()),
-	networkThread(&mfmControls, this)
+    ,valueTree(*this, nullptr, "Parameters", createParameters())
 {
     mySynth.clearVoices();
 
@@ -116,10 +46,6 @@ PhysicsBasedSynthAudioProcessor::PhysicsBasedSynthAudioProcessor()
     mySynth.addSound(new SynthSound());
 }
 
-PhysicsBasedSynthAudioProcessor::~PhysicsBasedSynthAudioProcessor()
-{
-	networkThread.stopThread(1000);
-}
 
 //==============================================================================
 const juce::String PhysicsBasedSynthAudioProcessor::getName() const
@@ -225,6 +151,17 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
 	mfmControls["__dynamic__"] = dynamicControl;
 	channelToImage[1] = "__dynamic__";
 
+    auto tableDirectory = getState("TableDirectory");
+	if (tableDirectory.isNotEmpty())
+	{
+		try {
+			loadMfmParamsFromFolder(tableDirectory);
+			triedLoadingTable = true;
+		}
+		catch (std::exception e) {
+			Logger::writeToLog("Error loading table directory: " + tableDirectory);
+		}
+	}
 }
 
 void PhysicsBasedSynthAudioProcessor::loadImages()
@@ -249,15 +186,12 @@ void PhysicsBasedSynthAudioProcessor::loadImages()
 
 void PhysicsBasedSynthAudioProcessor::loadParams()
 {
-    loadMfmParamsFromFolder(getState("TableDirectory"));
+	auto tableDirectory = getState("TableDirectory");
+    loadMfmParamsFromFolder(tableDirectory);
 }
 
 void PhysicsBasedSynthAudioProcessor::startNetworkThread()
 {
-	if (!networkThread.isThreadRunning())
-	{
-        networkThread.startThread();
-	}
 }
 
 void PhysicsBasedSynthAudioProcessor::addNotation(juce::String name, juce::File image) {
@@ -303,13 +237,28 @@ bool PhysicsBasedSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout&
 
 void setParam(AudioProcessorValueTreeState& valueTree, String paramId, float value)
 {
-	valueTree.getParameter(paramId)->beginChangeGesture();
+	//valueTree.getParameter(paramId)->beginChangeGesture();
 	valueTree.getParameter(paramId)->setValueNotifyingHost(value);
-	valueTree.getParameter(paramId)->endChangeGesture();
+	//valueTree.getParameter(paramId)->endChangeGesture();
 }
 
 void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+	if (!triedLoadingTable)
+	{
+        auto tableDirectory = getState("TableDirectory");
+        if (tableDirectory.isNotEmpty() ){
+
+            try {
+                loadMfmParamsFromFolder(tableDirectory);
+			}
+			catch (std::exception e) {
+				Logger::writeToLog("Error loading table directory: " + tableDirectory);
+			}
+
+            triedLoadingTable = true;
+        }
+	}
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -327,8 +276,18 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
     std::shared_ptr<MFMControl> control = mfmControls["__dynamic__"];
 	MidiBuffer::Iterator it(midiMessages);
 	MidiMessage message;
+	MidiBuffer filteredMidiMessages;
+	int currentChannel = valueTree.getRawParameterValue("inputChannel")->load();
 	int sampleNumber;
     while (it.getNextEvent(message, sampleNumber)) {
+
+		// filter out all notes that are not in the current channel
+		if (currentChannel!=0 && message.getChannel() != currentChannel)
+		{
+			continue;
+		}
+
+		filteredMidiMessages.addEvent(message, sampleNumber);
 
 		// update lastMidiMessage
 
@@ -355,17 +314,16 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
             case 75:
                 control->density[0] = value / 127.0 - 0.5;
                 
-				setParam(valueTree, "roughness", value / 127.0 - 0.5);
+				setParam(valueTree, "roughness", value / 127.0);
                 break;
-            case 76:
-                control->pitch[0] = (value / 127.0 - 0.5) * 8;
-				
-				setParam(valueTree, "pitchVariance", (value / 127.0 - 0.5) * 8);
-                break;
+    //        case 76:
+    //            control->pitch[0] = (value / 128.0 - 0.5) * 8;
+				//setParam(valueTree, "pitchVariance", value / 128.0);
+    //            break;
             case 77:
                 control->hue[0] = value / 127.0 * 140;
                 
-				setParam(valueTree, "bowPosition", value / 127.0 * 140);
+				setParam(valueTree, "bowPosition", value / 127.0);
                 break;
             case 78:
                 control->saturation[0] = value / 127.0;
@@ -383,7 +341,7 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
 
 
 
-    mySynth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
+    mySynth.renderNextBlock(buffer, filteredMidiMessages, 0, buffer.getNumSamples());
     // dry signal
     
  //   dryBuffer.makeCopyOf(buffer, true);
@@ -417,12 +375,12 @@ juce::AudioProcessorEditor* PhysicsBasedSynthAudioProcessor::createEditor()
 
 void PhysicsBasedSynthAudioProcessor::setState(juce::String name, juce::String value)
 {
-    valueTree.state.getOrCreateChildWithName("stringState", nullptr).setProperty(name, value, nullptr);
+    valueTree.state.setProperty(name, value, nullptr);
 }
 
 juce::String PhysicsBasedSynthAudioProcessor::getState(juce::String name)
 {
-	return valueTree.state.getOrCreateChildWithName("stringState", nullptr).getProperty(name, "");
+	return valueTree.state.getProperty(name, "");
 }
 
 //==============================================================================
@@ -436,7 +394,8 @@ void PhysicsBasedSynthAudioProcessor::getStateInformation (juce::MemoryBlock& de
 void PhysicsBasedSynthAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
-
+    auto temp = xmlState->toString();
+	Logger::writeToLog(temp);
     if (xmlState.get() != nullptr)
         if (xmlState->hasTagName(valueTree.state.getType()))
             valueTree.replaceState(juce::ValueTree::fromXml(*xmlState));
@@ -474,11 +433,12 @@ AudioProcessorValueTreeState::ParameterLayout PhysicsBasedSynthAudioProcessor::c
 	params.push_back(std::make_unique<AudioParameterFloat>("attack", "Attack", 0.0f, 2.0f, 1.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("loopStart", "Loop Start", 0.0f, 5.0f, 0.5f));
     params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 1.75f));
+	params.push_back(std::make_unique<AudioParameterInt>("inputChannel", "Input Channel", 0, 16, 0));
 
 	// feature parameters
 	params.push_back(std::make_unique<AudioParameterFloat>("intensity", "Intensity", 0.0f, 1.0f, 0.5f));
 	params.push_back(std::make_unique<AudioParameterFloat>("roughness", "Roughness", 0.0f, 1.0f, 0.5f));
-	params.push_back(std::make_unique<AudioParameterFloat>("pitchVariance", "Pitch Variance", -8.0f, 8.0f, 0.0f));
+	params.push_back(std::make_unique<AudioParameterFloat>("pitchVariance", "Pitch Variance", -12.0f, 12.0f, 0.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("bowPosition", "Bow Position", 0.0f, 140.0f, 70.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("resonance", "Resonance", 0.0f, 1.0f, 0.5f));
 	params.push_back(std::make_unique<AudioParameterFloat>("sharpness", "Sharpness", 0.0f, 1.0f, 0.5f));
