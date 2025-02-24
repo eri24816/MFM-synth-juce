@@ -151,6 +151,17 @@ void PhysicsBasedSynthAudioProcessor::prepareToPlay (double sampleRate, int samp
 	mfmControls["__dynamic__"] = dynamicControl;
 	channelToImage[1] = "__dynamic__";
 
+    auto tableDirectory = getState("TableDirectory");
+	if (tableDirectory.isNotEmpty())
+	{
+		try {
+			loadMfmParamsFromFolder(tableDirectory);
+			triedLoadingTable = true;
+		}
+		catch (std::exception e) {
+			Logger::writeToLog("Error loading table directory: " + tableDirectory);
+		}
+	}
 }
 
 void PhysicsBasedSynthAudioProcessor::loadImages()
@@ -175,7 +186,8 @@ void PhysicsBasedSynthAudioProcessor::loadImages()
 
 void PhysicsBasedSynthAudioProcessor::loadParams()
 {
-    loadMfmParamsFromFolder(getState("TableDirectory"));
+	auto tableDirectory = getState("TableDirectory");
+    loadMfmParamsFromFolder(tableDirectory);
 }
 
 void PhysicsBasedSynthAudioProcessor::startNetworkThread()
@@ -225,13 +237,28 @@ bool PhysicsBasedSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout&
 
 void setParam(AudioProcessorValueTreeState& valueTree, String paramId, float value)
 {
-	valueTree.getParameter(paramId)->beginChangeGesture();
+	//valueTree.getParameter(paramId)->beginChangeGesture();
 	valueTree.getParameter(paramId)->setValueNotifyingHost(value);
-	valueTree.getParameter(paramId)->endChangeGesture();
+	//valueTree.getParameter(paramId)->endChangeGesture();
 }
 
 void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+	if (!triedLoadingTable)
+	{
+        auto tableDirectory = getState("TableDirectory");
+        if (tableDirectory.isNotEmpty() ){
+
+            try {
+                loadMfmParamsFromFolder(tableDirectory);
+			}
+			catch (std::exception e) {
+				Logger::writeToLog("Error loading table directory: " + tableDirectory);
+			}
+
+            triedLoadingTable = true;
+        }
+	}
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -249,8 +276,18 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
     std::shared_ptr<MFMControl> control = mfmControls["__dynamic__"];
 	MidiBuffer::Iterator it(midiMessages);
 	MidiMessage message;
+	MidiBuffer filteredMidiMessages;
+	int currentChannel = valueTree.getRawParameterValue("inputChannel")->load();
 	int sampleNumber;
     while (it.getNextEvent(message, sampleNumber)) {
+
+		// filter out all notes that are not in the current channel
+		if (currentChannel!=0 && message.getChannel() != currentChannel)
+		{
+			continue;
+		}
+
+		filteredMidiMessages.addEvent(message, sampleNumber);
 
 		// update lastMidiMessage
 
@@ -279,10 +316,10 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
                 
 				setParam(valueTree, "roughness", value / 127.0);
                 break;
-            case 76:
-                control->pitch[0] = (value / 128.0 - 0.5) * 8;
-				setParam(valueTree, "pitchVariance", value / 128.0);
-                break;
+    //        case 76:
+    //            control->pitch[0] = (value / 128.0 - 0.5) * 8;
+				//setParam(valueTree, "pitchVariance", value / 128.0);
+    //            break;
             case 77:
                 control->hue[0] = value / 127.0 * 140;
                 
@@ -304,7 +341,7 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
 
 
 
-    mySynth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
+    mySynth.renderNextBlock(buffer, filteredMidiMessages, 0, buffer.getNumSamples());
     // dry signal
     
  //   dryBuffer.makeCopyOf(buffer, true);
@@ -338,12 +375,12 @@ juce::AudioProcessorEditor* PhysicsBasedSynthAudioProcessor::createEditor()
 
 void PhysicsBasedSynthAudioProcessor::setState(juce::String name, juce::String value)
 {
-    valueTree.state.getOrCreateChildWithName("stringState", nullptr).setProperty(name, value, nullptr);
+    valueTree.state.setProperty(name, value, nullptr);
 }
 
 juce::String PhysicsBasedSynthAudioProcessor::getState(juce::String name)
 {
-	return valueTree.state.getOrCreateChildWithName("stringState", nullptr).getProperty(name, "");
+	return valueTree.state.getProperty(name, "");
 }
 
 //==============================================================================
@@ -357,7 +394,8 @@ void PhysicsBasedSynthAudioProcessor::getStateInformation (juce::MemoryBlock& de
 void PhysicsBasedSynthAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
-
+    auto temp = xmlState->toString();
+	Logger::writeToLog(temp);
     if (xmlState.get() != nullptr)
         if (xmlState->hasTagName(valueTree.state.getType()))
             valueTree.replaceState(juce::ValueTree::fromXml(*xmlState));
@@ -395,11 +433,12 @@ AudioProcessorValueTreeState::ParameterLayout PhysicsBasedSynthAudioProcessor::c
 	params.push_back(std::make_unique<AudioParameterFloat>("attack", "Attack", 0.0f, 2.0f, 1.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("loopStart", "Loop Start", 0.0f, 5.0f, 0.5f));
     params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 1.75f));
+	params.push_back(std::make_unique<AudioParameterInt>("inputChannel", "Input Channel", 0, 16, 0));
 
 	// feature parameters
 	params.push_back(std::make_unique<AudioParameterFloat>("intensity", "Intensity", 0.0f, 1.0f, 0.5f));
 	params.push_back(std::make_unique<AudioParameterFloat>("roughness", "Roughness", 0.0f, 1.0f, 0.5f));
-	params.push_back(std::make_unique<AudioParameterFloat>("pitchVariance", "Pitch Variance", -8.0f, 8.0f, 0.0f));
+	params.push_back(std::make_unique<AudioParameterFloat>("pitchVariance", "Pitch Variance", -12.0f, 12.0f, 0.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("bowPosition", "Bow Position", 0.0f, 140.0f, 70.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("resonance", "Resonance", 0.0f, 1.0f, 0.5f));
 	params.push_back(std::make_unique<AudioParameterFloat>("sharpness", "Sharpness", 0.0f, 1.0f, 0.5f));

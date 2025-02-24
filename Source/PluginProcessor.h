@@ -96,6 +96,7 @@ public:
 
 	juce::String lastMidiMessage;
 
+
 private:
     juce::Synthesiser mySynth;
 
@@ -110,6 +111,8 @@ private:
     int currentNoteChannel[128] = { 1 };
 
 	void loadMfmParamsFromFolder(juce::String path);
+
+	bool triedLoadingTable = false;
 
 
     //==============================================================================

@@ -268,9 +268,9 @@ public:
         }
     }
     
-    void pitchWheelMoved (int newPitchWheelValue) override
+    void pitchWheelMoved (int value) override
     {
-        
+		setParam(*valueTree, "pitchVariance", value / 16384.0f);
     }
     
     void controllerMoved (int controllerNumber, int newControllerValue) override
@@ -443,12 +443,20 @@ private:
 	int* currentNoteChannel;
 	int frameIdx = 0;
 
+
+	void setParam(AudioProcessorValueTreeState& valueTree, String paramId, float value)
+	{
+		//valueTree.getParameter(paramId)->beginChangeGesture();
+		valueTree.getParameter(paramId)->setValueNotifyingHost(value);
+		//valueTree.getParameter(paramId)->endChangeGesture();
+	}
+
 	float getParam(String paramId, float smooth_half_life = 0.0f) {
 		if (lastParamValues.find(paramId) == lastParamValues.end()) {
 			lastGetParamValueTime[paramId] = time;
-			lastParamValues[paramId] = valueTree->getParameterAsValue(paramId).getValue();
+			lastParamValues[paramId] = valueTree->getRawParameterValue(paramId)->load();
 		}
-		float value = valueTree->getParameterAsValue(paramId).getValue();
+		float value = valueTree->getRawParameterValue(paramId)->load();
 		float lastValue = lastParamValues[paramId];
 		float time = this->time;
 		float lastTime = lastGetParamValueTime[paramId];
@@ -468,6 +476,8 @@ private:
 		lastGetParamValueTime[paramId] = time;
 		return lastParamValues[paramId];
 	}
+
+
 
 	std::map<String, float> lastParamValues;
 	std::map<String, float> lastGetParamValueTime;
