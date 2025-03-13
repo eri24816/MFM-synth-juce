@@ -432,7 +432,7 @@ AudioProcessorValueTreeState::ParameterLayout PhysicsBasedSynthAudioProcessor::c
 	params.push_back(std::make_unique<AudioParameterFloat>("wetDry", "Wet Dry", 0.0f, 1.0f, 0.5f));
 	params.push_back(std::make_unique<AudioParameterFloat>("attack", "Attack", 0.0f, 2.0f, 1.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("loopStart", "Loop Start", 0.0f, 5.0f, 0.5f));
-    params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 1.75f));
+    params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 1.0f));
 	params.push_back(std::make_unique<AudioParameterInt>("inputChannel", "Input Channel", 0, 16, 0));
 
 	// feature parameters

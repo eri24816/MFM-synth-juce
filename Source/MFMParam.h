@@ -21,8 +21,9 @@ class MFMParam
 {
 public:
 	std::unique_ptr<float[]> magGlobal, attackWave, alphaGlobal, envelope;
+    std::unique_ptr<float[]> alphaLocalSpreadingCenter, alphaLocalSpreadingFactor, alphaLocalNoiseGain;
     int param_sr, num_samples, num_partials, overlapLen, attackLen, sampleRate;
-    float base_freq;
+	float base_freq, coloredCutoff1, coloredCutoff2;
 
 
 	MFMParam(std::string path)
@@ -42,6 +43,13 @@ public:
 		alphaGlobal = load_np_into_array(path, "alphaGlobal");
 		envelope = load_np_into_array(path, "totalEnv");
 		base_freq = cnpy::read_npz(path, "pitch").as_vec<float>()[0];
+
+		alphaLocalSpreadingCenter = load_np_into_array(path, "alphaLocal.spreadingCenter");
+		alphaLocalSpreadingFactor = load_np_into_array(path, "alphaLocal.spreadingFactor");
+		alphaLocalNoiseGain = load_np_into_array(path, "alphaLocal.noiseGain");
+       
+		coloredCutoff1 = cnpy::read_npz(path, "coloredCutoff1").as_vec<float>()[0];
+		coloredCutoff2 = cnpy::read_npz(path, "coloredCutoff2").as_vec<float>()[0];
     }
 
     std::unique_ptr<float[]> load_np_into_array(std::string path, std::string key) {

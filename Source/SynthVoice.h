@@ -23,8 +23,11 @@
 using namespace juce;
 
 namespace {
-    float sampleFromArray(float* array, float index) {
+    float sampleFromArray(float* array, float index, int length=2147483647) {
         int i = (int)index;
+		if (i >= length - 1) {
+			return array[length - 1];
+		}
         float a = array[i];
         float b = array[i + 1];
         float interp = index - i;
@@ -73,34 +76,47 @@ namespace {
 			this->loopLengthRaw = loopEndRaw - loopStartRaw;
 			loopLength = loopEnd - loopStart;
 			this->loopSamples = std::vector<float>(loopLength);
+			this->isLoopSamplesCached = std::vector<bool>(loopLength,false);
 
 			this->recip_sr = 1.0f / sr;
+
+			this->sampleLimit = loopEndRaw + overlapRaw;
 		}
 		float sample(int i) {
 			if (i < loopStart + overlap) {
 				float target_pos = (float(i)) * this->recip_sr;
-				float result = sampleFromArray(array, target_pos);
+				float result = sampleFromArray(array, target_pos,sampleLimit);
 				return result;
 			}
 			else {
-				if (i >= this->loopEnd + overlap) {
-					float result = loopSamples[(i - loopStart) % loopLength];
-					return result;
-				}
-				float targetPos = float(i) * recip_sr;
-				targetPos = fmod(targetPos - loopStartRaw, loopLengthRaw);
-				if (targetPos > overlapRaw) {
 
-					float result = sampleFromArray(array, targetPos + loopStartRaw);
-					loopSamples[i - loopStart] = result;
+				int i_loop = (i - loopStart) % loopLength; // betwen 0 and loopLength-1
+				// use cache if cache is filled
+				if (isLoopSamplesCached[i_loop]) {
+					float result = loopSamples[i_loop];
 					return result;
 				}
+
+				// cache is not filled. calculate manually
+
+				float targetPos = float(i_loop) * recip_sr; // between 0 and loopLengthRaw-1
+				// not in overlap area
+				//if (targetPos > overlapRaw) {
+				if (i_loop >= overlap) {
+					float result = sampleFromArray(array, targetPos + loopStartRaw, sampleLimit);
+					loopSamples[i_loop] = result;
+					isLoopSamplesCached[i_loop] = true;
+					return result;
+				}
+
+				// in overlap area
 				const float lerp = targetPos / overlapRaw;
-				float result = sampleFromArray(array, targetPos + loopStartRaw) * lerp
-					+ sampleFromArray(array, targetPos + loopEndRaw) * (1 - lerp);
+				float result = sampleFromArray(array, targetPos + loopStartRaw, sampleLimit) * lerp
+					+ sampleFromArray(array, targetPos + loopEndRaw, sampleLimit) * (1 - lerp);
 
-				i = (i - loopStart) % loopLength;
-				loopSamples[i] = result;
+
+				loopSamples[i_loop] = result;
+				isLoopSamplesCached[i_loop] = true;
 				return result;
 			}
 		}
@@ -108,9 +124,11 @@ namespace {
 	private:
 		float* array;
 		std::vector<float> loopSamples;
+		std::vector<bool> isLoopSamplesCached;
 		int loopStart, loopEnd, loopLength, overlap;
 		float loopEndRaw, overlapRaw, loopStartRaw, loopLengthRaw;
 		float recip_sr;
+		int sampleLimit;
 	};
 
 	class MultiChannelLoopSampler {
@@ -177,6 +195,8 @@ public:
 		this->mfmControls = mfmControls;
 		this->currentNoteChannel = currentNoteChannel;
 		this->channelToImage = channelToImage;
+
+		generateColoredNoise(noise, 80000, 2000);
     }
 
     bool canPlaySound (juce::SynthesiserSound* sound) override
@@ -194,6 +214,8 @@ public:
     
     void startNote (int midiNoteNumber, float velocity, SynthesiserSound* sound, int currentPitchWheelPosition) override
     {
+
+
 		// if mfmParams do not have midiNoteNumber, play nothing
         if (mfmParams->find(midiNoteNumber) == mfmParams->end()) {
 			param.reset();
@@ -208,13 +230,18 @@ public:
 		frameIdx = 0;
 
 		// initialize loop samplers
-		const float loopStart = getParam("loopStart") * param->param_sr;
-		const float loopEnd = std::fmin(getParam("loopEnd") * param->param_sr, param->num_samples);
+		//const float loopStart = getParam("loopStart") * param->param_sr;
+		//const float loopEnd = std::fmin(getParam("loopEnd") * param->param_sr, param->num_samples
+
+		// for now loop start and end are hardcoded
+		const float loopStart = 0.4 * param->param_sr;
+		const float loopEnd = std::fmin(1.25 * param->param_sr, param->num_samples);
 		const float loopOverlap = 0.5 * param->param_sr;
 
 		const float audioParamSampleRatio =  ((float)getSampleRate())/ ((float) param->param_sr);
 		magGlobal = std::make_unique<MultiChannelLoopSampler>(param->magGlobal.get(), param->num_samples, param->num_partials, audioParamSampleRatio, loopStart, loopEnd, loopOverlap);
 		alphaGlobal = std::make_unique<MultiChannelLoopSampler>(param->alphaGlobal.get(), param->num_samples, param->num_partials, audioParamSampleRatio, loopStart, loopEnd, loopOverlap);
+		noiseSampler = std::make_unique<LoopSampler>(noise, 5000, 60000, (2000/ param->coloredCutoff1), 10);
 
 		// select control
 		/*juce::String controlToUse = (*channelToImage)[currentNoteChannel[midiNoteNumber]];
@@ -255,6 +282,7 @@ public:
         this->velocity = velocity;
         baseFrequency = MidiMessage::getMidiNoteInHertz(midiNoteNumber);
         //frequency = param->base_freq;
+
         
     }
     
@@ -405,6 +433,11 @@ public:
             }
 
 
+			// debug the noise
+
+			//y = noise[frameIdx % 80000] * 0.5;
+			//y = noiseSampler->sample(frameIdx) * 0.5;
+
             for (int channel = 0; channel < outputBuffer.getNumChannels(); ++channel)
             {
 				outputBuffer.addSample(channel, startSample, y * gain * 0.1);
@@ -432,6 +465,7 @@ private:
     std::shared_ptr<MFMParam> param;
 	std::unique_ptr<MultiChannelLoopSampler> magGlobal;
 	std::unique_ptr<MultiChannelLoopSampler> alphaGlobal;
+	std::unique_ptr<LoopSampler> noiseSampler;
 
 	std::map<juce::String, std::shared_ptr<MFMControl>>* mfmControls = nullptr;
 	std::shared_ptr<MFMControl> control;
@@ -443,6 +477,20 @@ private:
 	int* currentNoteChannel;
 	int frameIdx = 0;
 
+	float noise[80000];
+
+	void generateColoredNoise(float* buffer, int length, float cutoff) {
+		Random r;
+		for (int i = 0; i < length; i++) {
+			buffer[i] = r.nextFloat() * 2 - 1;
+		}
+
+		juce::dsp::IIR::Filter<float> filter;
+		filter.coefficients = juce::dsp::IIR::Coefficients<float>::makeLowPass(getSampleRate(), cutoff);
+		juce::dsp::AudioBlock<float> block(&buffer, 1, length);
+		juce::dsp::ProcessContextReplacing<float> context(block);
+		filter.process(context);
+	}
 
 	void setParam(AudioProcessorValueTreeState& valueTree, String paramId, float value)
 	{
