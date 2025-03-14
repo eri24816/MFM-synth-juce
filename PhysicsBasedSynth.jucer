@@ -2,7 +2,7 @@
 
 <JUCERPROJECT id="guUdRR" name="MFMSynth" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="1" jucerFormatVersion="1" pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
-              pluginFormats="buildVST3" pluginName="MFMSynth" pluginDesc="MFM Synthesizer"
+              pluginFormats="buildAU,buildVST3" pluginName="MFMSynth" pluginDesc="MFM Synthesizer"
               cppLanguageStandard="17">
   <MAINGROUP id="Kz5Htd" name="MFMSynth">
     <GROUP id="{9A49C777-E63D-FDF6-E7BE-B1031F3C0961}" name="Source">
