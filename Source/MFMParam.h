@@ -21,7 +21,7 @@ class MFMParam
 {
 public:
 	std::unique_ptr<float[]> magGlobal, attackWave, alphaGlobal, envelope;
-    std::unique_ptr<float[]> alphaLocalSpreadingCenter, alphaLocalSpreadingFactor, alphaLocalNoiseGain;
+    std::unique_ptr<float[]> alphaLocalSpreadingCenter, alphaLocalSpreadingFactor, alphaLocalNoiseGain, alphaLocalEnv, alphaLocalEnv1, alphaLocalEnv2, alphaLocalGain;
     int param_sr, num_samples, num_partials, overlapLen, attackLen, sampleRate;
 	float base_freq, coloredCutoff1, coloredCutoff2;
 
@@ -47,6 +47,19 @@ public:
 		alphaLocalSpreadingCenter = load_np_into_array(path, "alphaLocal.spreadingCenter");
 		alphaLocalSpreadingFactor = load_np_into_array(path, "alphaLocal.spreadingFactor");
 		alphaLocalNoiseGain = load_np_into_array(path, "alphaLocal.noiseGain");
+		alphaLocalEnv = load_np_into_array(path, "alphaLocal.env"); // num_partials, 2, num_samples
+		alphaLocalEnv1 = std::make_unique<float[]>(num_partials * num_samples);
+        alphaLocalEnv2 = std::make_unique<float[]>(num_partials * num_samples);
+
+		for (int p = 0; p < num_partials; p++) {
+			for (int s = 0; s < num_samples; s++) {
+				alphaLocalEnv1[p * num_samples + s] = alphaLocalEnv[p * 2 * num_samples + s];
+				alphaLocalEnv2[p * num_samples + s] = alphaLocalEnv[p * 2 * num_samples + s + num_samples];
+			}
+		}
+
+
+        alphaLocalGain = load_np_into_array(path, "alphaLocal.gain");
        
 		coloredCutoff1 = cnpy::read_npz(path, "coloredCutoff1").as_vec<float>()[0];
 		coloredCutoff2 = cnpy::read_npz(path, "coloredCutoff2").as_vec<float>()[0];

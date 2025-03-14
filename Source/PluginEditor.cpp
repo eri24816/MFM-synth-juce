@@ -27,7 +27,8 @@ PhysicsBasedSynthAudioProcessorEditor::PhysicsBasedSynthAudioProcessorEditor (Ph
 		{"Pitch Variance", "pitchVariance"},
 		{"Bow Position", "bowPosition"},
 		{"Resonance", "resonance"},
-		{"Sharpness", "sharpness"}
+		{"Sharpness", "sharpness"},
+		{"Vibrato", "vibrato"}
 		}),
 	settings(p)
 {
