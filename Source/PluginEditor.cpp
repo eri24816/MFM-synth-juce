@@ -17,8 +17,8 @@ PhysicsBasedSynthAudioProcessorEditor::PhysicsBasedSynthAudioProcessorEditor (Ph
 		{"Gain", "gain"},
 		//{"Wet Dry", "wetDry"},
 		{"Attack", "attack"},
-		/*{"Loop Start", "loopStart"},
-		{"Loop End", "loopEnd"}*/
+		//{"Loop Start", "loopStart"},
+		//{"Loop End", "loopEnd"},
 		{"Input Channel", "inputChannel"}
 		}),
 	featureParamComponent(p, "Feature", {
@@ -27,11 +27,12 @@ PhysicsBasedSynthAudioProcessorEditor::PhysicsBasedSynthAudioProcessorEditor (Ph
 		{"Pitch Variance", "pitchVariance"},
 		{"Bow Position", "bowPosition"},
 		{"Resonance", "resonance"},
-		{"Sharpness", "sharpness"}
+		{"Sharpness", "sharpness"},
+		{"Vibrato", "vibrato"}
 		}),
 	settings(p)
 {
-	setSize(1000, 700);
+	setSize(1000, 600);
 
 	addAndMakeVisible(mainParamComponent);
 	addAndMakeVisible(featureParamComponent);

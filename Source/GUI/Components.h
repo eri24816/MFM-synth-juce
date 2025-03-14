@@ -13,7 +13,7 @@
 #include <JuceHeader.h>
 #include "../PluginProcessor.h"
 
-#define MFM_VERSION "9"
+#define MFM_VERSION "10"
 /*
 display a list of images with their names at their top-left corner
 image1 name1
@@ -164,7 +164,7 @@ public:
 			}
 			statusText.setText("Done.", juce::dontSendNotification);
 		};
-		statusText.setText("Apply settings before using the synth.", juce::dontSendNotification);
+		statusText.setText("Load table before using the synth.", juce::dontSendNotification);
 
 		applySettingsButton.onClick = applySettingsCallback;
 	}
@@ -197,7 +197,7 @@ private:
 	InputBoxWithLabel serverAddress = InputBoxWithLabel("ServerUrl", "ServerUrl", p.valueTree.state);
 	InputBoxWithLabel imagesDirectory = InputBoxWithLabel("ImagesDirectory", "ImagesDirectory", p.valueTree.state);
 	InputBoxWithLabel tableDirectory = InputBoxWithLabel("TableDirectory", "TableDirectory", p.valueTree.state);
-	juce::TextButton applySettingsButton = juce::TextButton("ApplySettings");
+	juce::TextButton applySettingsButton = juce::TextButton("Load table");
 	//status text
 	juce::Label statusText;
 	juce::Label lastMidiMessageText;

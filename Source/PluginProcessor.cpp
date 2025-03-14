@@ -316,10 +316,10 @@ void PhysicsBasedSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& bu
                 
 				setParam(valueTree, "roughness", value / 127.0);
                 break;
-    //        case 76:
-    //            control->pitch[0] = (value / 128.0 - 0.5) * 8;
-				//setParam(valueTree, "pitchVariance", value / 128.0);
-    //            break;
+            case 76:
+                control->pitch[0] = value / 127.0;
+				setParam(valueTree, "vibrato", value / 127.0);
+                break;
             case 77:
                 control->hue[0] = value / 127.0 * 140;
                 
@@ -432,7 +432,7 @@ AudioProcessorValueTreeState::ParameterLayout PhysicsBasedSynthAudioProcessor::c
 	params.push_back(std::make_unique<AudioParameterFloat>("wetDry", "Wet Dry", 0.0f, 1.0f, 0.5f));
 	params.push_back(std::make_unique<AudioParameterFloat>("attack", "Attack", 0.0f, 2.0f, 1.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("loopStart", "Loop Start", 0.0f, 5.0f, 0.5f));
-    params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 1.75f));
+    params.push_back(std::make_unique<AudioParameterFloat>("loopEnd", "Loop End", 0.0f, 5.0f, 1.0f));
 	params.push_back(std::make_unique<AudioParameterInt>("inputChannel", "Input Channel", 0, 16, 0));
 
 	// feature parameters
@@ -442,7 +442,8 @@ AudioProcessorValueTreeState::ParameterLayout PhysicsBasedSynthAudioProcessor::c
 	params.push_back(std::make_unique<AudioParameterFloat>("bowPosition", "Bow Position", 0.0f, 140.0f, 70.0f));
 	params.push_back(std::make_unique<AudioParameterFloat>("resonance", "Resonance", 0.0f, 1.0f, 0.5f));
 	params.push_back(std::make_unique<AudioParameterFloat>("sharpness", "Sharpness", 0.0f, 1.0f, 0.5f));
-
+    params.push_back(std::make_unique<AudioParameterFloat>("vibrato", "Vibrato", 0.0f, 1.0f, 0.42f));
+    
 
     return { params.begin(), params.end() };
 }
