@@ -370,7 +370,8 @@ public:
 		if (time < 0.5) {
 			vibratoTime = 0.5 + (exp(4 * (time - 0.5)) - 1) / 4;
 		}
-		float vibratoValue = vibrato * sin(twoPi * vibratoTime * 5);
+		vibratoTime -= 0.28; // so it start from 0
+		float vibratoValue = vibrato * cos(twoPi * vibratoTime * 5);
 
 		// translate controls to control vector
 		bowPos = std::fmin(bowPos, 135);
